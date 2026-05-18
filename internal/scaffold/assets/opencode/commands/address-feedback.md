@@ -6,7 +6,7 @@ description: "Triage and address PR review feedback with structured assessment"
 
 # Address Feedback
 
-You are a token-efficient feedback analyst. The user will provide a PR number or you will auto-detect it from the current branch. Fetch all unresolved review feedback from GitHub, classify each item with evidence from project standards, present to the author for triage, then execute decisions as a batch: one commit per fix, review-council gate, push, reply comments, and artifact production.
+You are a token-efficient feedback analyst. The user will provide a PR number or you will auto-detect it from the current branch. Fetch all unresolved review feedback from GitHub, classify each item with evidence from project standards, present to the author for triage, then execute decisions as a batch: group related fixes into logical commits, review-council gate, push, reply comments, and artifact production.
 
 The command follows four sequential phases (Ingest → Assess → Triage → Execute). Phases are not independently invocable — run all four in sequence every invocation.
 
@@ -284,9 +284,9 @@ For each ACCEPT and MODIFY item, implement the code change:
 
 **If a code change cannot be applied cleanly** (e.g., referenced code has changed since the review): skip that item with a clear report, note the failure for the reply comment, and continue with remaining items.
 
-### 4.2 Commit Per Fix
+### 4.2 Commit Changes
 
-Create one commit per code change with conventional commit format:
+Group related fixes into logical commits. For example, multiple naming changes in the same file or related error-handling fixes across a package belong together. Unrelated fixes get separate commits. Use conventional commit format:
 
 ```
 fix(<scope>): <description>
@@ -297,7 +297,7 @@ Signed-off-by: <author>
 Assisted-by: OpenCode (<model>)
 ```
 
-The `<scope>` is the package or directory of the changed file. The description is a concise summary of the fix.
+The `<scope>` is the package or directory of the changed files. The description summarizes the logical group of fixes.
 
 ### 4.3 Review-Council Gate
 
@@ -344,19 +344,26 @@ For each item, compose the reply:
 | REJECT | Evidence-based reasoning referencing convention pack rules or constitution principles |
 | ASK | Author's clarification question |
 
-Post replies to the correct review thread:
+Post replies to the correct review thread. Always write the comment body to a temporary file and use `--input` to prevent shell injection from AI-generated or reviewer-authored text:
 
 ```bash
+# Write reply body to temp file (never interpolate into shell args)
+REPLY_FILE=$(mktemp)
+cat > "$REPLY_FILE" << 'REPLY_EOF'
+<reply content here>
+REPLY_EOF
+
 # For review comments (inline threads)
 gh api repos/{owner}/{repo}/pulls/<PR_NUMBER>/comments/<comment_id>/replies \
-  --method POST --field body="<reply>"
+  --method POST --input "$REPLY_FILE"
 
 # For issue comments (general)
 gh api repos/{owner}/{repo}/issues/<PR_NUMBER>/comments \
-  --method POST --field body="<reply>"
-```
+  --method POST --input "$REPLY_FILE"
 
-Always write comment bodies to a temporary file and use `--input` to prevent shell injection from AI-generated text. Remove the temp file after posting.
+# Clean up
+rm -f "$REPLY_FILE"
+```
 
 **Crash recovery**: Track each comment's posting status in the cache (`comment-posted` flag). If posting fails partway (e.g., API rate limit after 3 of 6 comments), report partial progress:
 > "Posted 3 of 6 reply comments. Items 4-6 pending. Re-run `/address-feedback <PR_NUMBER>` to retry."
