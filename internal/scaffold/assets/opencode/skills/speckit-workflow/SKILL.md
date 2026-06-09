@@ -91,15 +91,15 @@ Each task follows this format:
 
 ## Worker Instructions
 
-When spawning workers via `swarm_spawn_subtask()`:
+When spawning workers via `forge_spawn_subtask()`:
 
 1. Include the task description and file path in the
    worker's prompt
-2. Workers MUST call `swarmmail_reserve()` on the target
+2. Workers MUST call `comms_reserve()` on the target
    file(s) before editing
 3. Workers MUST mark the task `[x]` in `tasks.md` after
    completing it
-4. Workers MUST call `swarm_complete()` when done
+4. Workers MUST call `forge_complete()` when done
 
 ## Phase Checkpoints
 
