@@ -140,8 +140,7 @@ runs:
         else
           echo '{}' > review_output.json
           if [[ -s review_raw.txt ]]; then
-            SUMMARY=$(cat review_raw.txt)
-            jq -n --arg s "${SUMMARY}" \
+            jq -n --rawfile s review_raw.txt \
               '{summary: $s, inline_comments: []}' \
               > review_output.json
           else
