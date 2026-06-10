@@ -106,15 +106,41 @@ runs:
       shell: bash
       env:
         AGENTS_PATTERN: ${{ inputs.agents-pattern }}
+        ACTION_PATH: ${{ github.action_path }}
       run: |
-        COUNT=$(find . -path "${AGENTS_PATTERN}" 2>/dev/null \
-          | wc -l | tr -d ' ')
-        if [[ "${COUNT}" -eq 0 ]]; then
-          echo "::notice::No agents — single-agent fallback"
-          echo "mode=single" >> "$GITHUB_OUTPUT"
-        else
-          echo "::notice::Discovered ${COUNT} agent(s)"
+        COUNT=$(find . -path "./${AGENTS_PATTERN}" \
+          2>/dev/null | wc -l | tr -d ' ')
+        if [[ "${COUNT}" -gt 0 ]]; then
+          echo "::notice::Discovered ${COUNT} repo agent(s)"
           echo "mode=multi" >> "$GITHUB_OUTPUT"
+          echo "source=repo" >> "$GITHUB_OUTPUT"
+        else
+          BUNDLED="${ACTION_PATH}/../${AGENTS_PATTERN}"
+          BCOUNT=$(find "${ACTION_PATH}/.." \
+            -path "${BUNDLED}" 2>/dev/null \
+            | wc -l | tr -d ' ')
+          if [[ "${BCOUNT}" -gt 0 ]]; then
+            echo "::notice::Using ${BCOUNT} bundled agent(s)"
+            UF="${ACTION_PATH}/.."
+            mkdir -p .opencode/agents .opencode/commands \
+              .opencode/uf/packs
+            cp "${UF}"/.opencode/agents/divisor-*.md \
+              .opencode/agents/
+            for f in review-council.md review-pr.md; do
+              [[ -f "${UF}/.opencode/commands/${f}" ]] && \
+                cp "${UF}/.opencode/commands/${f}" \
+                  .opencode/commands/
+            done
+            [[ -f "${UF}/.opencode/uf/packs/severity.md" ]] && \
+              cp "${UF}/.opencode/uf/packs/severity.md" \
+                .opencode/uf/packs/
+            echo "mode=multi" >> "$GITHUB_OUTPUT"
+            echo "source=bundled" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::No agents — single-agent fallback"
+            echo "mode=single" >> "$GITHUB_OUTPUT"
+            echo "source=none" >> "$GITHUB_OUTPUT"
+          fi
         fi
 
     - name: Build review prompt
