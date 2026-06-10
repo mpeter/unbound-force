@@ -8,7 +8,29 @@
 # general reviewer.
 #
 # Required env: MODEL, AGENT_MODE
+# Optional env: GOOGLE_CLOUD_PROJECT, VERTEX_LOCATION,
+#               GOOGLE_APPLICATION_CREDENTIALS
 set -euo pipefail
+
+PROVIDER="${MODEL%%/*}"
+MODEL_NAME="${MODEL#*/}"
+
+if [[ "${PROVIDER}" == "google-vertex-anthropic" ]]; then
+  export OPENCODE_CONFIG_CONTENT
+  OPENCODE_CONFIG_CONTENT=$(cat <<OCEOF
+{
+  "\$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "google-vertex-anthropic": {
+      "models": {
+        "${MODEL_NAME}": {}
+      }
+    }
+  }
+}
+OCEOF
+)
+fi
 
 PROMPT=$(cat review_prompt.txt)
 
@@ -23,6 +45,6 @@ fi
 
 if [[ ! -s review_raw.txt ]]; then
   echo "::warning::OpenCode produced no output"
-  echo '{"summary": "Council review produced no output.", "inline_comments": []}' \
+  echo '{"summary": "No output.", "inline_comments": []}' \
     > review_raw.txt
 fi
