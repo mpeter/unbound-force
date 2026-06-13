@@ -29,13 +29,13 @@ func TestRunInit_FreshDir(t *testing.T) {
 		t.Errorf("expected output to contain 'files processed', got:\n%s", output)
 	}
 
-	// Verify the summary includes a non-trivial file count
-	// 38 = 36 prior + 2 Python convention pack files
-	// (python.md + python-custom.md).
+	// Verify the summary includes a non-trivial file count.
+	// Count is updated as new scaffold assets are added.
+	// 52 = prior assets + Muti-Mind commands + gaze-report.md
 	// (devcontainer excluded — OS-specific, generated
 	// per-user by uf sandbox init).
-	if !strings.Contains(output, "38 files processed") {
-		t.Errorf("expected '38 files processed' in output, got:\n%s", output)
+	if !strings.Contains(output, "52 files processed") {
+		t.Errorf("expected '52 files processed' in output, got:\n%s", output)
 	}
 
 	// Verify a user-owned file was created

@@ -273,6 +273,23 @@ Single binary CLI with layered internal packages:
 Dewey and Replicator use `granite-embedding:30m` (Apache 2.0).
 Override in `.uf/config.yaml` under `embedding.model`.
 
+## Setup Pipeline: Python Projects
+
+`uf setup` now installs `gaze-py` automatically for Python projects.
+The step is gated on language detection (`pyproject.toml`, `setup.py`,
+`requirements.txt`, etc.) and runs after the Gaze step:
+
+- **Tool**: `gaze-py` (pinned to `GazePyVersion` in `internal/setup/setup.go`)
+- **Install method**: `uv tool install gaze-py==<version>` (preferred),
+  fallback to `pip install --user gaze-py==<version>`
+- **Gate**: `detectLang(opts.TargetDir) == "python"` — skipped for non-Python projects
+- **Scaffold asset**: `.opencode/commands/gaze-report.md` — the `/gaze-report`
+  command for running contract coverage analysis
+
+To update the pinned version, change `GazePyVersion` in
+`internal/setup/setup.go` and update `TestRunInit_FreshDir` if the
+file count changes.
+
 ## Convention Packs
 
 This repository uses convention packs scaffolded by

@@ -19,6 +19,16 @@ Each entry follows the format: `- <change-name>: <summary>`.
   Rules validated against 5 major AI/LLM Python projects and
   8 authoritative style sources.
   (Spec: openspec/changes/upgrade-python-pack/)
+- `gaze-py setup integration`: `uf setup` now installs `gaze-py` for
+  Python projects. Language detection gates the step on
+  `pyproject.toml` / `setup.py` / `requirements.txt` etc. Install
+  method: `uv tool install` (preferred), fallback to `pip install
+  --user`. Pinned version: `GazePyVersion = "0.1.0"`.
+  (Spec: specs/001-gaze-py-engine/, Phase 5 T022–T024)
+- `/gaze-report` slash command scaffold asset
+  (`.opencode/commands/gaze-report.md`) for running `gaze-py report`
+  contract coverage analysis on Python projects.
+  (Spec: specs/001-gaze-py-engine/, Phase 5 T025)
 - `python-convention-pack`: Added Python convention pack
   (`python.md`, `python-custom.md`) with 46 rules across 7
   sections (Coding Style, Architectural Patterns, Security

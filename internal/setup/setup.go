@@ -137,6 +137,42 @@ type stepResult struct {
 	err    error
 }
 
+// GazePyVersion is the pinned version of gaze-py to install.
+// Bumped here when a new release of gaze-py is published.
+const GazePyVersion = "0.1.0"
+
+// detectLang returns the primary programming language of the project
+// at targetDir by checking for well-known marker files. Returns ""
+// when no language can be detected.
+//
+// Duplicated from scaffold.detectLang() to avoid a cross-package
+// import (setup → scaffold would create a dependency that scaffold
+// does not have on setup, but the reverse would couple the two
+// packages unnecessarily).
+func detectLang(targetDir string) string {
+	markers := []struct {
+		file string
+		lang string
+	}{
+		{"go.mod", "go"},
+		{"tsconfig.json", "typescript"},
+		{"package.json", "typescript"},
+		{"pyproject.toml", "python"},
+		{"setup.py", "python"},
+		{"setup.cfg", "python"},
+		{"requirements.txt", "python"},
+		{"tox.ini", "python"},
+		{"Pipfile", "python"},
+		{"Cargo.toml", "rust"},
+	}
+	for _, m := range markers {
+		if _, err := os.Stat(filepath.Join(targetDir, m.file)); err == nil {
+			return m.lang
+		}
+	}
+	return ""
+}
+
 // Default embedding model constants — used when config does not
 // override. IBM Granite, Apache 2.0, permissibly licensed training data.
 const (
@@ -371,9 +407,20 @@ func Run(opts Options) error {
 // closures capture mutable state pointers so inter-step dependencies
 // are tracked without branching in Run().
 func buildSteps(opts *Options, nodeAvailable, uvAvailable, replicatorAvailable *bool) []stepDef {
+	// Detect language once and capture in closure for the gaze-py gate.
+	// detectLang reads the filesystem — call it once to avoid repeated I/O.
+	lang := detectLang(opts.TargetDir)
+
 	return []stepDef{
 		{name: "OpenCode", tool: "opencode", install: installOpenCode},
 		{name: "Gaze", tool: "gaze", install: installGaze},
+		{
+			name:       "gaze-py",
+			tool:       "gaze-py",
+			install:    installGazePy,
+			gate:       func() bool { return lang == "python" },
+			gateDetail: "not a Python project",
+		},
 		{name: "GitHub CLI", tool: "gh", install: installGH},
 		{
 			name: "Node.js", tool: "node", install: ensureNodeJS,
@@ -747,6 +794,52 @@ func installGaze(opts *Options, env doctor.DetectedEnvironment) stepResult {
 		return skipResult
 	default:
 		return skipResult
+	}
+}
+
+// installGazePy installs gaze-py if missing per Spec 001 (gaze-py engine).
+// Preferred method: uv tool install (if uv is available). Fallback: pip
+// install --user. The step is gated on Python project detection — it only
+// runs when detectLang(opts.TargetDir) == "python".
+func installGazePy(opts *Options, _ doctor.DetectedEnvironment) stepResult {
+	if _, err := opts.LookPath("gaze-py"); err == nil {
+		return stepResult{name: "gaze-py", action: "already installed"}
+	}
+
+	if opts.DryRun {
+		return stepResult{
+			name:   "gaze-py",
+			action: "dry-run",
+			detail: fmt.Sprintf("Would install: uv tool install gaze-py==%s", GazePyVersion),
+		}
+	}
+
+	// Try uv first — preferred for Python tool management.
+	if _, uvErr := opts.LookPath("uv"); uvErr == nil {
+		if _, err := opts.ExecCmd("uv", "tool", "install",
+			fmt.Sprintf("gaze-py==%s", GazePyVersion)); err == nil {
+			return stepResult{
+				name:   "gaze-py",
+				action: "installed",
+				detail: fmt.Sprintf("via uv (gaze-py==%s)", GazePyVersion),
+			}
+		}
+	}
+
+	// Fallback to pip install --user.
+	if _, err := opts.ExecCmd("pip", "install", "--user",
+		fmt.Sprintf("gaze-py==%s", GazePyVersion)); err != nil {
+		return stepResult{
+			name:   "gaze-py",
+			action: "failed",
+			detail: fmt.Sprintf("install failed: %s", err.Error()),
+			err:    err,
+		}
+	}
+	return stepResult{
+		name:   "gaze-py",
+		action: "installed",
+		detail: fmt.Sprintf("via pip (gaze-py==%s)", GazePyVersion),
 	}
 }
 

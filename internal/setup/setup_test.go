@@ -5369,5 +5369,338 @@ func TestInstallGH_DryRunDnfFallback(t *testing.T) {
 	}
 	if !strings.Contains(result.detail, "dnf install -y gh") {
 		t.Errorf("detail = %q, want to contain 'dnf install -y gh'", result.detail)
+// --- gaze-py installation tests (T022) ---
+// Tests are written before implementation (TDD per TC-001).
+// installGazePy follows the same pattern as installGaze/installSpecify:
+// LookPath check → DryRun → uv first → pip fallback.
+
+// TestInstallGazePy_AlreadyInstalled verifies that when gaze-py is
+// already in PATH, the step returns "already installed" without
+// calling any install commands.
+func TestInstallGazePy_AlreadyInstalled(t *testing.T) {
+	rec := &cmdRecorder{}
+
+	opts := &Options{
+		LookPath: stubLookPath(map[string]string{
+			"gaze-py": "/usr/local/bin/gaze-py",
+		}),
+		ExecCmd: rec.execCmd,
+	}
+	opts.defaults()
+
+	env := doctor.DetectedEnvironment{}
+
+	result := installGazePy(opts, env)
+	if result.action != "already installed" {
+		t.Errorf("action = %q, want %q", result.action, "already installed")
+	}
+	if len(rec.calls) != 0 {
+		t.Errorf("expected no ExecCmd calls when already installed, got: %v", rec.calls)
+	}
+}
+
+// TestInstallGazePy_DryRun_WithUV verifies that when DryRun is true
+// and uv is available, the step reports the uv install command without
+// executing it.
+func TestInstallGazePy_DryRun_WithUV(t *testing.T) {
+	rec := &cmdRecorder{}
+
+	opts := &Options{
+		DryRun: true,
+		LookPath: stubLookPath(map[string]string{
+			"uv": "/usr/local/bin/uv",
+		}),
+		ExecCmd: rec.execCmd,
+	}
+	opts.defaults()
+
+	env := doctor.DetectedEnvironment{}
+
+	result := installGazePy(opts, env)
+	if result.action != "dry-run" {
+		t.Errorf("action = %q, want %q", result.action, "dry-run")
+	}
+	if !strings.Contains(result.detail, "uv tool install") {
+		t.Errorf("detail = %q, want to contain 'uv tool install'", result.detail)
+	}
+	if !strings.Contains(result.detail, GazePyVersion) {
+		t.Errorf("detail = %q, want to contain version %q", result.detail, GazePyVersion)
+	}
+	if len(rec.calls) != 0 {
+		t.Errorf("expected no ExecCmd calls in dry-run, got: %v", rec.calls)
+	}
+}
+
+// TestInstallGazePy_DryRun_NoUV verifies that when DryRun is true
+// and uv is not available, the step still reports a dry-run action
+// (pip fallback hint).
+func TestInstallGazePy_DryRun_NoUV(t *testing.T) {
+	rec := &cmdRecorder{}
+
+	opts := &Options{
+		DryRun:  true,
+		LookPath: stubLookPath(map[string]string{}),
+		ExecCmd: rec.execCmd,
+	}
+	opts.defaults()
+
+	env := doctor.DetectedEnvironment{}
+
+	result := installGazePy(opts, env)
+	if result.action != "dry-run" {
+		t.Errorf("action = %q, want %q", result.action, "dry-run")
+	}
+	if len(rec.calls) != 0 {
+		t.Errorf("expected no ExecCmd calls in dry-run, got: %v", rec.calls)
+	}
+}
+
+// TestInstallGazePy_InstallViaUV verifies that when uv is available
+// and the install succeeds, the step returns "installed" with a
+// "via uv" detail and calls the correct uv command.
+func TestInstallGazePy_InstallViaUV(t *testing.T) {
+	rec := &cmdRecorder{}
+
+	opts := &Options{
+		LookPath: stubLookPath(map[string]string{
+			"uv": "/usr/local/bin/uv",
+		}),
+		ExecCmd: rec.execCmd,
+	}
+	opts.defaults()
+
+	env := doctor.DetectedEnvironment{}
+
+	result := installGazePy(opts, env)
+	if result.action != "installed" {
+		t.Errorf("action = %q, want %q", result.action, "installed")
+	}
+	if !strings.Contains(result.detail, "uv") {
+		t.Errorf("detail = %q, want to contain 'uv'", result.detail)
+	}
+
+	// Verify the uv tool install command was called with the correct version.
+	expectedCmd := fmt.Sprintf("uv tool install gaze-py==%s", GazePyVersion)
+	found := false
+	for _, call := range rec.calls {
+		if call == expectedCmd {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected command %q, got calls: %v", expectedCmd, rec.calls)
+	}
+}
+
+// TestInstallGazePy_FallbackToPip verifies that when uv is not
+// available, the step falls back to pip and returns "installed"
+// with a "via pip" detail.
+func TestInstallGazePy_FallbackToPip(t *testing.T) {
+	rec := &cmdRecorder{}
+
+	// uv NOT in PATH — pip fallback path.
+	opts := &Options{
+		LookPath: stubLookPath(map[string]string{}),
+		ExecCmd:  rec.execCmd,
+	}
+	opts.defaults()
+
+	env := doctor.DetectedEnvironment{}
+
+	result := installGazePy(opts, env)
+	if result.action != "installed" {
+		t.Errorf("action = %q, want %q", result.action, "installed")
+	}
+	if !strings.Contains(result.detail, "pip") {
+		t.Errorf("detail = %q, want to contain 'pip'", result.detail)
+	}
+
+	// Verify pip install --user was called.
+	expectedCmd := fmt.Sprintf("pip install --user gaze-py==%s", GazePyVersion)
+	found := false
+	for _, call := range rec.calls {
+		if call == expectedCmd {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected command %q, got calls: %v", expectedCmd, rec.calls)
+	}
+}
+
+// TestInstallGazePy_NetworkFailure verifies that when both uv and pip
+// fail, the step returns "failed" with a non-empty detail and a
+// non-nil error.
+func TestInstallGazePy_NetworkFailure(t *testing.T) {
+	pipCmd := fmt.Sprintf("pip install --user gaze-py==%s", GazePyVersion)
+	uvCmd := fmt.Sprintf("uv tool install gaze-py==%s", GazePyVersion)
+	rec := &cmdRecorder{
+		errors: map[string]error{
+			pipCmd: fmt.Errorf("connection refused"),
+			uvCmd:  fmt.Errorf("connection refused"),
+		},
+	}
+
+	opts := &Options{
+		LookPath: stubLookPath(map[string]string{
+			"uv": "/usr/local/bin/uv",
+		}),
+		ExecCmd: rec.execCmd,
+	}
+	opts.defaults()
+
+	env := doctor.DetectedEnvironment{}
+
+	result := installGazePy(opts, env)
+	if result.action != "failed" {
+		t.Errorf("action = %q, want %q", result.action, "failed")
+	}
+	if result.detail == "" {
+		t.Error("expected non-empty detail on failure")
+	}
+	if result.err == nil {
+		t.Error("expected non-nil error on failure")
+	}
+}
+
+// TestInstallGazePy_UVFailsFallbackPipSucceeds verifies that when uv
+// install fails but pip succeeds, the step returns "installed" via pip.
+func TestInstallGazePy_UVFailsFallbackPipSucceeds(t *testing.T) {
+	uvCmd := fmt.Sprintf("uv tool install gaze-py==%s", GazePyVersion)
+	rec := &cmdRecorder{
+		errors: map[string]error{
+			uvCmd: fmt.Errorf("uv: package not found"),
+		},
+	}
+
+	opts := &Options{
+		LookPath: stubLookPath(map[string]string{
+			"uv": "/usr/local/bin/uv",
+		}),
+		ExecCmd: rec.execCmd,
+	}
+	opts.defaults()
+
+	env := doctor.DetectedEnvironment{}
+
+	result := installGazePy(opts, env)
+	if result.action != "installed" {
+		t.Errorf("action = %q, want %q", result.action, "installed")
+	}
+	if !strings.Contains(result.detail, "pip") {
+		t.Errorf("detail = %q, want to contain 'pip'", result.detail)
+	}
+}
+
+// TestInstallGazePy_GoPythonProject verifies that a Python project
+// (with pyproject.toml) triggers the gaze-py step in the full Run()
+// pipeline. The gate function checks detectLang(opts.TargetDir) == "python".
+func TestInstallGazePy_GoPythonProject(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create pyproject.toml to signal Python project.
+	if err := os.WriteFile(filepath.Join(dir, "pyproject.toml"), []byte("[project]\nname = \"test\"\n"), 0644); err != nil {
+		t.Fatalf("write pyproject.toml: %v", err)
+	}
+
+	rec := &cmdRecorder{
+		outputs: map[string]string{
+			"node --version": "v22.15.0",
+		},
+	}
+
+	var buf bytes.Buffer
+	opts := Options{
+		TargetDir: dir,
+		YesFlag:   true,
+		Stdout:    &buf,
+		Stderr:    &buf,
+		LookPath: stubLookPath(map[string]string{
+			"brew":       "/opt/homebrew/bin/brew",
+			"node":       "/usr/local/bin/node",
+			"npm":        "/usr/local/bin/npm",
+			"opencode":   "/usr/local/bin/opencode",
+			"gaze":       "/usr/local/bin/gaze",
+			"gh":         "/usr/local/bin/gh",
+			"uv":         "/usr/local/bin/uv",
+			"specify":    "/usr/local/bin/specify",
+			"replicator": "/usr/local/bin/replicator",
+			// gaze-py NOT in PATH — should be installed
+		}),
+		ExecCmd:      rec.execCmd,
+		EvalSymlinks: stubEvalSymlinks(nil),
+		Getenv:       stubGetenv(map[string]string{}),
+		ReadFile:     os.ReadFile,
+		WriteFile:    os.WriteFile,
+	}
+
+	err := Run(opts)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	// Verify gaze-py install was attempted (via uv since uv is in PATH).
+	expectedCmd := fmt.Sprintf("uv tool install gaze-py==%s", GazePyVersion)
+	found := false
+	for _, call := range rec.calls {
+		if call == expectedCmd {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected gaze-py install command %q for Python project, got calls: %v", expectedCmd, rec.calls)
+	}
+}
+
+// TestInstallGazePy_GoOnlyProject verifies that a Go-only project
+// (no pyproject.toml) causes the gaze-py step to be skipped.
+func TestInstallGazePy_GoOnlyProject(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create go.mod to signal Go project (no pyproject.toml).
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/test\n\ngo 1.21\n"), 0644); err != nil {
+		t.Fatalf("write go.mod: %v", err)
+	}
+
+	rec := &cmdRecorder{
+		outputs: map[string]string{
+			"node --version": "v22.15.0",
+		},
+	}
+
+	var buf bytes.Buffer
+	opts := Options{
+		TargetDir: dir,
+		YesFlag:   true,
+		Stdout:    &buf,
+		Stderr:    &buf,
+		LookPath: stubLookPath(map[string]string{
+			"brew":       "/opt/homebrew/bin/brew",
+			"node":       "/usr/local/bin/node",
+			"npm":        "/usr/local/bin/npm",
+			"opencode":   "/usr/local/bin/opencode",
+			"gaze":       "/usr/local/bin/gaze",
+			"gh":         "/usr/local/bin/gh",
+			"uv":         "/usr/local/bin/uv",
+			"specify":    "/usr/local/bin/specify",
+			"replicator": "/usr/local/bin/replicator",
+		}),
+		ExecCmd:      rec.execCmd,
+		EvalSymlinks: stubEvalSymlinks(nil),
+		Getenv:       stubGetenv(map[string]string{}),
+		ReadFile:     os.ReadFile,
+		WriteFile:    os.WriteFile,
+	}
+
+	err := Run(opts)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	// Verify gaze-py install was NOT attempted for a Go project.
+	for _, call := range rec.calls {
+		if strings.Contains(call, "gaze-py") {
+			t.Errorf("gaze-py should not be installed for Go-only project, got call: %s", call)
+		}
 	}
 }
