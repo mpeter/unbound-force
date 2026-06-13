@@ -165,10 +165,24 @@ var expectedAssetPaths = []string{
 	"opencode/commands/review-pr.md",
 	"opencode/commands/uf-init.md",
 	"opencode/commands/unleash.md",
-	// OpenCode agents — Divisor personas (6) + Cobalt-Crush (1) + Mx F coach (1) + constitution-check (1)
+	// Muti-Mind commands (13) — PO backlog management; invoke the mutimind binary
+	"opencode/commands/muti-mind.init.md",
+	"opencode/commands/muti-mind.backlog-add.md",
+	"opencode/commands/muti-mind.backlog-list.md",
+	"opencode/commands/muti-mind.backlog-show.md",
+	"opencode/commands/muti-mind.backlog-update.md",
+	"opencode/commands/muti-mind.generate-stories.md",
+	"opencode/commands/muti-mind.prioritize.md",
+	"opencode/commands/muti-mind.sync.md",
+	"opencode/commands/muti-mind.sync-project.md",
+	"opencode/commands/muti-mind.sync-pull.md",
+	"opencode/commands/muti-mind.sync-push.md",
+	"opencode/commands/muti-mind.sync-status.md",
+	// OpenCode agents — Divisor personas (6) + Cobalt-Crush (1) + Mx F coach (1) + constitution-check (1) + Muti-Mind PO (1)
 	"opencode/agents/cobalt-crush-dev.md",
 	"opencode/agents/constitution-check.md",
-	"opencode/agents/mx-f-coach.md", // Spec 007: Mx F coaching persona (user-owned, not in --divisor subset, not tool-owned)
+	"opencode/agents/mx-f-coach.md",    // Spec 007: Mx F coaching persona (user-owned, not in --divisor subset, not tool-owned)
+	"opencode/agents/muti-mind-po.md",  // Spec 004: Muti-Mind PO persona (user-owned, not in --divisor subset, not tool-owned)
 	"opencode/agents/divisor-adversary.md",
 	"opencode/agents/divisor-architect.md",
 	"opencode/agents/divisor-curator.md",
@@ -1034,7 +1048,6 @@ var knownNonEmbeddedFiles = map[string]bool{
 	// Agents — local-only tooling, not scaffolded by uf init
 	".opencode/agents/gaze-reporter.md":       true,
 	".opencode/agents/gaze-test-generator.md": true,
-	".opencode/agents/muti-mind-po.md":        true,
 	// Legacy reviewer agents — superseded by divisor-* (Spec 019)
 	".opencode/agents/reviewer-adversary.md": true,
 	".opencode/agents/reviewer-architect.md": true,
@@ -1042,22 +1055,10 @@ var knownNonEmbeddedFiles = map[string]bool{
 	".opencode/agents/reviewer-sre.md":       true,
 	".opencode/agents/reviewer-testing.md":   true,
 	// Commands — local-only tooling
-	".opencode/commands/cobalt-crush.md":               true,
-	".opencode/commands/gaze.md":                       true,
-	".opencode/commands/gaze-fix.md":                   true,
-	".opencode/commands/speckit.testreview.md":         true,
-	".opencode/commands/muti-mind.backlog-add.md":      true,
-	".opencode/commands/muti-mind.backlog-list.md":     true,
-	".opencode/commands/muti-mind.backlog-show.md":     true,
-	".opencode/commands/muti-mind.backlog-update.md":   true,
-	".opencode/commands/muti-mind.generate-stories.md": true,
-	".opencode/commands/muti-mind.init.md":             true,
-	".opencode/commands/muti-mind.prioritize.md":       true,
-	".opencode/commands/muti-mind.sync-project.md":     true,
-	".opencode/commands/muti-mind.sync-pull.md":        true,
-	".opencode/commands/muti-mind.sync-push.md":        true,
-	".opencode/commands/muti-mind.sync-status.md":      true,
-	".opencode/commands/muti-mind.sync.md":             true,
+	".opencode/commands/cobalt-crush.md":       true,
+	".opencode/commands/gaze.md":               true,
+	".opencode/commands/gaze-fix.md":           true,
+	".opencode/commands/speckit.testreview.md": true,
 	// OpenSpec skill commands — local workflow tooling, not scaffolded by uf init
 	".opencode/commands/opsx-apply.md":   true,
 	".opencode/commands/opsx-archive.md": true,
