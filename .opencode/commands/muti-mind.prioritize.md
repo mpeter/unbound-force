@@ -21,5 +21,5 @@ Delegates the task of prioritizing the backlog to the Muti-Mind AI persona. The 
 2. For each backlog item, read its details (including description and dependencies) using `dewey_get_page`. Do NOT use CLI commands to read backlog files.
 3. Evaluate and compute a priority score for each item based on the scoring engine criteria defined in your persona (Business Value, Risk, Dependency Weight, Urgency, Effort). Combine explicit YAML dependencies with knowledge graph link traversal to discover implicit relationships.
 4. Rank the items based on the calculated composite score.
-5. Apply the new priority levels (P1 to P5) to the backlog items using the `bash` tool to run `mutimind update ...` (or `go run cmd/mutimind/main.go update ...`) based on their new ranking.
+5. Apply the new priority levels (P1 to P5) to the backlog items using the `bash` tool to run `mutimind update ...` based on their new ranking.
 6. Generate a final report summarizing the new ranking, displaying the score breakdowns, and providing a brief rationale for the changes.

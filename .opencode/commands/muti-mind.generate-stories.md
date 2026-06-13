@@ -24,5 +24,5 @@ Takes a high-level goal or feature description and delegates it to the Muti-Mind
 1. Use the provided `goal_description` to draft a set of user stories. 
 2. Ensure each story includes a title, priority, narrative description, and `Given/When/Then` acceptance criteria.
 3. Present the drafted stories to the user for interactive review. **Wait for the user to confirm** before proceeding.
-4. Once the user approves the stories, use the `bash` tool to invoke `/muti-mind.backlog-add` (or directly use `go run cmd/mutimind/main.go add`) for each approved story.
+4. Once the user approves the stories, use the `bash` tool to run `mutimind add` for each approved story.
 5. Output a final summary of the created backlog items.

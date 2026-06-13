@@ -23,6 +23,6 @@ Displays the full details of a specific backlog item, including its YAML frontma
 
 1. Use the `bash` tool to invoke the Go backend to show the backlog item details:
    ```bash
-   go run cmd/mutimind/main.go show <item_id>
+   mutimind show <item_id>
    ```
 2. Output the details returned by the backend.

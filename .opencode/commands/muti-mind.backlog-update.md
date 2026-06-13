@@ -26,6 +26,6 @@ Updates an existing backlog item's metadata.
 
 1. Use the `bash` tool to invoke the Go backend to update the backlog item:
    ```bash
-   go run cmd/mutimind/main.go update <item_id> --priority "$PRIORITY" --status "$STATUS" --sprint "$SPRINT"
+   mutimind update <item_id> --priority "$PRIORITY" --status "$STATUS" --sprint "$SPRINT"
    ```
 2. Output the success message returned by the backend.

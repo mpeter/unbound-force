@@ -19,6 +19,6 @@ Displays the current synchronization status of all local backlog items, showing 
 
 1. Use the `bash` tool to invoke the Go backend:
    ```bash
-   go run cmd/mutimind/main.go sync-status
+   mutimind sync-status
    ```
 2. Output the results returned by the backend.

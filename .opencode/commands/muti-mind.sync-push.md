@@ -23,6 +23,6 @@ Pushes local backlog items to GitHub Issues using the Go backend, which relies o
 
 1. Use the `bash` tool to invoke the Go backend:
    ```bash
-   go run cmd/mutimind/main.go sync-push [item_id]
+   mutimind sync-push [item_id]
    ```
 2. Output the results returned by the backend.

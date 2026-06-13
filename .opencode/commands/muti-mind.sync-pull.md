@@ -19,6 +19,6 @@ Pulls recent updates from GitHub Issues and updates the local backlog items.
 
 1. Use the `bash` tool to invoke the Go backend:
    ```bash
-   go run cmd/mutimind/main.go sync-pull
+   mutimind sync-pull
    ```
 2. Output the results returned by the backend.

@@ -26,7 +26,7 @@ Creates a new backlog item in the `.uf/muti-mind/backlog/` directory.
 
 1. Use the `bash` tool to invoke the Go backend to create the backlog item:
    ```bash
-   go run cmd/mutimind/main.go add --type "$TYPE" --title "$TITLE" --priority "$PRIORITY" --description "$DESCRIPTION"
+   mutimind add --type "$TYPE" --title "$TITLE" --priority "$PRIORITY" --description "$DESCRIPTION"
    ```
 2. Parse the output to get the generated `BI-NNN` ID.
 3. Return a success message with the new ID.

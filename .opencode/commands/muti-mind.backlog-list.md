@@ -24,6 +24,6 @@ Lists current backlog items in the `.uf/muti-mind/backlog/` directory, sorted by
 
 1. Use the `bash` tool to invoke the Go backend to list the backlog items:
    ```bash
-   go run cmd/mutimind/main.go list --status "$STATUS" --sprint "$SPRINT"
+   mutimind list --status "$STATUS" --sprint "$SPRINT"
    ```
 2. Output the results returned by the backend.

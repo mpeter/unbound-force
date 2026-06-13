@@ -19,6 +19,6 @@ Synchronizes the backlog with GitHub Projects (beta).
 
 1. Use the `bash` tool to invoke the Go backend:
    ```bash
-   go run cmd/mutimind/main.go sync-project
+   mutimind sync-project
    ```
 2. Output the results returned by the backend.

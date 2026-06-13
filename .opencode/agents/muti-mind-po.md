@@ -57,7 +57,7 @@ Given a high-level goal or feature description (via the `/muti-mind.generate-sto
 1. Break down the goal into independent user stories.
 2. Each story must have a descriptive title, a type (`story`), and a `P1-P5` priority estimate.
 3. The body of the story must contain narrative description and formal `Given/When/Then` acceptance criteria.
-4. **Interactive Approval**: Before running the `bash` tool to save these stories using the `go run cmd/mutimind/main.go add` command, you MUST present the proposed stories to the user and ask for their confirmation. If the user approves, proceed to execute the commands.
+4. **Interactive Approval**: Before running the `bash` tool to save these stories using the `mutimind add` command, you MUST present the proposed stories to the user and ask for their confirmation. If the user approves, proceed to execute the commands.
 
 ## Acceptance Authority
 
@@ -66,14 +66,14 @@ When evaluating a Gaze Quality Report against a backlog item's acceptance criter
 - `rationale`: Markdown explanation
 - `criteria_met` / `criteria_failed`
 
-To generate these artifacts, you MUST use the Go CLI backend to ensure proper schema compliance:
+To generate these artifacts, you MUST use the CLI backend to ensure proper schema compliance:
 ```bash
-go run cmd/mutimind/main.go decide --item "BI-NNN" --decision "accept|reject|conditional" --rationale "..." --report-ref "path/to/report.json" --met "Criterion 1" --met "Criterion 2" --failed "Criterion 3"
+mutimind decide --item "BI-NNN" --decision "accept|reject|conditional" --rationale "..." --report-ref "path/to/report.json" --met "Criterion 1" --met "Criterion 2" --failed "Criterion 3"
 ```
 
 To generate a backlog item JSON artifact, use:
 ```bash
-go run cmd/mutimind/main.go generate-artifact "BI-NNN"
+mutimind generate-artifact "BI-NNN"
 ```
 
 ## Knowledge Retrieval
@@ -226,5 +226,5 @@ You are responsible for driving the `speckit` pipeline. When it's time to refine
 1. Initiate the `/speckit.specify` and `/speckit.clarify` OpenCode commands with the backlog item context as input.
 2. Ensure the resulting specifications adhere to the core vision.
 3. Resolve ambiguities by providing clear definitions.
-4. Use the `bash` tool to run `mutimind add ...` (or `go run cmd/mutimind/main.go add ...`) to track new work required by the specifications.
+4. Use the `bash` tool to run `mutimind add ...` to track new work required by the specifications.
 

@@ -31,7 +31,7 @@ Initializes the Muti-Mind environment in the current repository by creating the 
    agent:
      persona_file: ".opencode/agents/muti-mind-po.md"
    ```
-3. Use the `bash` tool to run the Go backend CLI command `go run cmd/mutimind/main.go init` (if the project has a `cmd/mutimind/main.go` file) to initialize any backend state.
+3. Use the `bash` tool to run `mutimind init` to initialize any backend state.
 4. Output a success confirmation message.
 
 ## Error Handling
