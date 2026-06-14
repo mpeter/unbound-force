@@ -3391,15 +3391,15 @@ func TestSetupRun_SkipViaConfig(t *testing.T) {
 
 	output := buf.String()
 	for _, tool := range []string{"Ollama", "Dewey", "golangci-lint", "govulncheck"} {
-		if !strings.Contains(output, tool) {
-			continue
-		}
-		// Verify the tool shows as "excluded by config" not "installed" or "failed".
-		lines := strings.Split(output, "\n")
-		for _, line := range lines {
+		found := false
+		for _, line := range strings.Split(output, "\n") {
 			if strings.Contains(line, tool) && strings.Contains(line, "excluded by config") {
+				found = true
 				break
 			}
+		}
+		if !found {
+			t.Errorf("expected tool %q to show 'excluded by config' in output, got:\n%s", tool, output)
 		}
 	}
 }
@@ -3607,6 +3607,7 @@ func TestInstallGazePy_DryRunWithHomebrew(t *testing.T) {
 }
 
 func TestInstallGazePy_DryRunNoHomebrew(t *testing.T) {
+	// No Homebrew, no uv — dry-run mentions uv install path.
 	opts := &Options{
 		DryRun:   true,
 		LookPath: stubLookPath(map[string]string{}),
@@ -3617,12 +3618,32 @@ func TestInstallGazePy_DryRunNoHomebrew(t *testing.T) {
 	if result.action != "dry-run" {
 		t.Errorf("action = %q, want %q", result.action, "dry-run")
 	}
-	if !strings.Contains(result.detail, "GitHub releases") {
-		t.Errorf("detail = %q, want to contain 'GitHub releases'", result.detail)
+	if !strings.Contains(result.detail, "uv") || !strings.Contains(result.detail, "Homebrew") {
+		t.Errorf("detail = %q, want mention of uv and Homebrew unavailability", result.detail)
 	}
 }
 
-func TestInstallGazePy_NoHomebrewSkip(t *testing.T) {
+func TestInstallGazePy_DryRunNoHomebrewWithUV(t *testing.T) {
+	// No Homebrew but uv present — dry-run via uv.
+	opts := &Options{
+		DryRun: true,
+		LookPath: stubLookPath(map[string]string{
+			"uv": "/usr/local/bin/uv",
+		}),
+	}
+	env := doctor.DetectedEnvironment{}
+
+	result := installGazePy(opts, env)
+	if result.action != "dry-run" {
+		t.Errorf("action = %q, want %q", result.action, "dry-run")
+	}
+	if !strings.Contains(result.detail, "gaze-py>=") {
+		t.Errorf("detail = %q, want to contain 'gaze-py>=0.2'", result.detail)
+	}
+}
+
+func TestInstallGazePy_NoHomebrewNoUVSkip(t *testing.T) {
+	// Neither Homebrew nor uv — skip with hint.
 	opts := &Options{
 		LookPath: stubLookPath(map[string]string{}),
 	}
@@ -3632,11 +3653,177 @@ func TestInstallGazePy_NoHomebrewSkip(t *testing.T) {
 	if result.action != "skipped" {
 		t.Errorf("action = %q, want %q", result.action, "skipped")
 	}
-	if !strings.Contains(result.detail, "Homebrew not available") {
-		t.Errorf("detail = %q, want to contain 'Homebrew not available'", result.detail)
+	if !strings.Contains(result.detail, "uv") {
+		t.Errorf("detail = %q, want to mention uv", result.detail)
 	}
-	if !strings.Contains(result.detail, "gaze-py") {
-		t.Errorf("detail = %q, want to contain 'gaze-py' release link", result.detail)
+}
+
+func TestInstallGazePy_HomebrewFallback_DiagnosticWritten(t *testing.T) {
+	// FR-003: diagnostic line must be written to Stdout when brew fails and uv is tried.
+	rec := &cmdRecorder{
+		errors: map[string]error{
+			"brew install unbound-force/tap/gazepy": fmt.Errorf("tap formula not found"),
+		},
+		outputs: map[string]string{
+			"uv tool install gaze-py>=0.2": "",
+		},
+	}
+	var buf bytes.Buffer
+	opts := &Options{
+		LookPath: stubLookPath(map[string]string{"uv": "/usr/local/bin/uv"}),
+		ExecCmd:  rec.execCmd,
+		Stdout:   &buf,
+	}
+	env := doctor.DetectedEnvironment{
+		Managers: []doctor.ManagerInfo{
+			{Kind: doctor.ManagerHomebrew, Path: "/opt/homebrew/bin/brew"},
+		},
+	}
+
+	installGazePy(opts, env)
+
+	out := buf.String()
+	if !strings.Contains(out, "brew install failed") {
+		t.Errorf("diagnostic missing 'brew install failed', stdout: %q", out)
+	}
+	if !strings.Contains(out, "trying uv") {
+		t.Errorf("diagnostic missing 'trying uv', stdout: %q", out)
+	}
+}
+
+func TestInstallGazePy_AutoPath_UVFails(t *testing.T) {
+	// Auto mode: no Homebrew, uv present, uv install fails.
+	// err field MUST be set — regression for silent error drop bug.
+	rec := &cmdRecorder{
+		errors: map[string]error{
+			"uv tool install gaze-py>=0.2": fmt.Errorf("network error: pypi.org unreachable"),
+		},
+	}
+	opts := &Options{
+		LookPath: stubLookPath(map[string]string{
+			"uv": "/usr/local/bin/uv",
+		}),
+		ExecCmd: rec.execCmd,
+	}
+	env := doctor.DetectedEnvironment{} // no Homebrew
+
+	result := installGazePy(opts, env)
+	if result.action != "failed" {
+		t.Errorf("action = %q, want %q", result.action, "failed")
+	}
+	if result.err == nil {
+		t.Error("err must be non-nil when uv install fails (regression: auto-path dropped err)")
+	}
+}
+
+func TestInstallGazePy_ExplicitUVMethodDryRun(t *testing.T) {
+	opts := &Options{
+		DryRun:   true,
+		LookPath: stubLookPath(map[string]string{}),
+		ToolMethods: map[string]config.ToolConfig{
+			"gazepy": {Method: "uv"},
+		},
+	}
+	env := doctor.DetectedEnvironment{}
+
+	result := installGazePy(opts, env)
+	if result.action != "dry-run" {
+		t.Errorf("action = %q, want dry-run", result.action)
+	}
+	if !strings.Contains(result.detail, "gaze-py>=") {
+		t.Errorf("detail = %q, want 'uv tool install gaze-py>=0.2'", result.detail)
+	}
+}
+
+func TestInstallGazePy_ExplicitUV_UVPresent(t *testing.T) {
+	// FR-001 scenario 1: explicit method: uv, uv on PATH, install succeeds.
+	rec := &cmdRecorder{
+		outputs: map[string]string{
+			"uv tool install gaze-py>=0.2": "Installed gaze-py",
+		},
+	}
+	opts := &Options{
+		LookPath: stubLookPath(map[string]string{
+			"uv": "/usr/local/bin/uv",
+		}),
+		ExecCmd: rec.execCmd,
+		ToolMethods: map[string]config.ToolConfig{
+			"gazepy": {Method: "uv"},
+		},
+	}
+	env := doctor.DetectedEnvironment{}
+
+	result := installGazePy(opts, env)
+	if result.action != "installed" {
+		t.Errorf("action = %q, want %q", result.action, "installed")
+	}
+	if !strings.Contains(result.detail, "uv") {
+		t.Errorf("detail = %q, want to contain 'uv'", result.detail)
+	}
+}
+
+func TestInstallGazePy_ExplicitUV_UVAbsent(t *testing.T) {
+	// FR-001 scenario 2: explicit method: uv, uv NOT on PATH → failed + err.
+	opts := &Options{
+		LookPath: stubLookPath(map[string]string{}), // uv absent
+		ToolMethods: map[string]config.ToolConfig{
+			"gazepy": {Method: "uv"},
+		},
+	}
+	env := doctor.DetectedEnvironment{}
+
+	result := installGazePy(opts, env)
+	if result.action != "failed" {
+		t.Errorf("action = %q, want %q", result.action, "failed")
+	}
+	if result.err == nil {
+		t.Error("err must be non-nil when explicit uv method but uv not found")
+	}
+}
+
+func TestInstallGazePy_ExplicitUV_InstallFails(t *testing.T) {
+	// Regression: explicit method: uv, uv on PATH, install fails → err non-nil.
+	rec := &cmdRecorder{
+		errors: map[string]error{
+			"uv tool install gaze-py>=0.2": fmt.Errorf("pypi timeout"),
+		},
+	}
+	opts := &Options{
+		LookPath: stubLookPath(map[string]string{"uv": "/usr/local/bin/uv"}),
+		ExecCmd:  rec.execCmd,
+		ToolMethods: map[string]config.ToolConfig{
+			"gazepy": {Method: "uv"},
+		},
+	}
+	result := installGazePy(opts, doctor.DetectedEnvironment{})
+	if result.action != "failed" {
+		t.Errorf("action = %q, want %q", result.action, "failed")
+	}
+	if result.err == nil {
+		t.Error("err must be non-nil when explicit uv install fails")
+	}
+}
+
+func TestInstallGazePy_AutoPath_NoHomebrewUVSucceeds(t *testing.T) {
+	// Auto mode: no Homebrew in env, uv on PATH, install succeeds.
+	rec := &cmdRecorder{
+		outputs: map[string]string{
+			"uv tool install gaze-py>=0.2": "",
+		},
+	}
+	opts := &Options{
+		LookPath: stubLookPath(map[string]string{"uv": "/usr/local/bin/uv"}),
+		ExecCmd:  rec.execCmd,
+		Stdout:   &bytes.Buffer{},
+	}
+	env := doctor.DetectedEnvironment{} // no Homebrew
+
+	result := installGazePy(opts, env)
+	if result.action != "installed" {
+		t.Errorf("action = %q, want %q", result.action, "installed")
+	}
+	if !strings.Contains(result.detail, "uv") {
+		t.Errorf("detail = %q, want to contain 'uv'", result.detail)
 	}
 }
 
@@ -3665,7 +3852,8 @@ func TestInstallGazePy_HomebrewInstallSuccess(t *testing.T) {
 	}
 }
 
-func TestInstallGazePy_HomebrewInstallFailed(t *testing.T) {
+func TestInstallGazePy_HomebrewInstallFailed_NoUVFallback(t *testing.T) {
+	// Homebrew fails, no uv available — skips with hint.
 	rec := &cmdRecorder{
 		errors: map[string]error{
 			"brew install unbound-force/tap/gazepy": fmt.Errorf("brew error"),
@@ -3674,12 +3862,68 @@ func TestInstallGazePy_HomebrewInstallFailed(t *testing.T) {
 	opts := &Options{
 		LookPath: stubLookPath(map[string]string{}),
 		ExecCmd:  rec.execCmd,
+		Stdout:   &bytes.Buffer{},
 	}
 	env := doctor.DetectedEnvironment{
 		Managers: []doctor.ManagerInfo{
 			{Kind: doctor.ManagerHomebrew, Path: "/opt/homebrew/bin/brew"},
 		},
 	}
+
+	result := installGazePy(opts, env)
+	// Homebrew failed → no uv → skipped with hint (not hard failed).
+	if result.action != "skipped" {
+		t.Errorf("action = %q, want %q (Homebrew fail + no uv = skip)", result.action, "skipped")
+	}
+}
+
+func TestInstallGazePy_HomebrewInstallFailed_UVSucceeds(t *testing.T) {
+	// Homebrew fails (formula not in tap yet), uv available → uv install.
+	rec := &cmdRecorder{
+		errors: map[string]error{
+			"brew install unbound-force/tap/gazepy": fmt.Errorf("brew error"),
+		},
+		outputs: map[string]string{
+			"uv tool install gaze-py>=0.2": "",
+		},
+	}
+	opts := &Options{
+		LookPath: stubLookPath(map[string]string{
+			"uv": "/usr/local/bin/uv",
+		}),
+		ExecCmd: rec.execCmd,
+		Stdout:  &bytes.Buffer{},
+	}
+	env := doctor.DetectedEnvironment{
+		Managers: []doctor.ManagerInfo{
+			{Kind: doctor.ManagerHomebrew, Path: "/opt/homebrew/bin/brew"},
+		},
+	}
+
+	result := installGazePy(opts, env)
+	if result.action != "installed" {
+		t.Errorf("action = %q, want installed (uv fallback)", result.action)
+	}
+	if !strings.Contains(result.detail, "uv") {
+		t.Errorf("detail = %q, want to contain 'uv'", result.detail)
+	}
+}
+
+func TestInstallGazePy_ExplicitHomebrewFailed(t *testing.T) {
+	// Explicit method:homebrew — hard fail if brew fails (no uv fallback).
+	rec := &cmdRecorder{
+		errors: map[string]error{
+			"brew install unbound-force/tap/gazepy": fmt.Errorf("brew error"),
+		},
+	}
+	opts := &Options{
+		LookPath: stubLookPath(map[string]string{}),
+		ExecCmd:  rec.execCmd,
+		ToolMethods: map[string]config.ToolConfig{
+			"gazepy": {Method: "homebrew"},
+		},
+	}
+	env := doctor.DetectedEnvironment{}
 
 	result := installGazePy(opts, env)
 	if result.action != "failed" {

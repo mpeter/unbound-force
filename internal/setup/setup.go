@@ -259,7 +259,7 @@ func Run(opts Options) error {
 	var nodeAvailable, uvAvailable bool
 	replicatorAvailable := true
 
-	// Define all 16 steps as data. Order matters — later steps
+	// Define all 17 steps as data. Order matters — later steps
 	// may gate on state set by earlier steps' effect callbacks.
 	steps := buildSteps(&opts, &nodeAvailable, &uvAvailable, &replicatorAvailable)
 
@@ -275,7 +275,6 @@ func buildSteps(opts *Options, nodeAvailable, uvAvailable, replicatorAvailable *
 	return []stepDef{
 		{name: "OpenCode", tool: "opencode", install: installOpenCode},
 		{name: "Gaze", tool: "gaze", install: installGaze},
-		{name: "GazePy", tool: "gazepy", install: installGazePy},
 		{name: "GitHub CLI", tool: "gh", install: installGH},
 		{
 			name: "Node.js", tool: "node", install: ensureNodeJS,
@@ -298,6 +297,10 @@ func buildSteps(opts *Options, nodeAvailable, uvAvailable, replicatorAvailable *
 			name: "Specify CLI", tool: "specify", install: installSpecify,
 			gate:       func() bool { return *uvAvailable },
 			gateDetail: "no uv",
+		},
+		{
+			// GazePy placed after uv so the uv fallback is always reachable.
+			name: "GazePy", tool: "gazepy", install: installGazePy,
 		},
 		{
 			name: "Replicator", tool: "replicator", install: installReplicator,
@@ -516,10 +519,11 @@ func installOpenSpec(opts *Options, env doctor.DetectedEnvironment) stepResult {
 	return stepResult{name: "OpenSpec CLI", action: "installed", detail: "via npm"}
 }
 
-// installGazePy installs GazePy if missing per FR-PGI-002.
-// Follows the installGaze() pattern: Homebrew only, skip with
-// GitHub releases link if no Homebrew. No RPM path for this
-// iteration — Homebrew Formula covers macOS and Linux.
+// installGazePy installs GazePy if missing.
+// Install order: Homebrew first (when the tap formula is
+// available), uv tool install second (via PyPI — always
+// available when uv is installed). Falls back gracefully
+// when Homebrew fails (e.g. tap formula not yet published).
 func installGazePy(opts *Options, env doctor.DetectedEnvironment) stepResult {
 	if _, err := opts.LookPath("gazepy"); err == nil {
 		return stepResult{name: "GazePy", action: "already installed"}
@@ -529,7 +533,6 @@ func installGazePy(opts *Options, env doctor.DetectedEnvironment) stepResult {
 	method := opts.toolMethod("gazepy")
 	switch method {
 	case "homebrew":
-		// Force Homebrew regardless of detection.
 		if opts.DryRun {
 			return stepResult{name: "GazePy", action: "dry-run", detail: "Would install: brew install unbound-force/tap/gazepy"}
 		}
@@ -537,30 +540,59 @@ func installGazePy(opts *Options, env doctor.DetectedEnvironment) stepResult {
 			return stepResult{name: "GazePy", action: "failed", detail: "brew install failed", err: err}
 		}
 		return stepResult{name: "GazePy", action: "installed", detail: "via Homebrew"}
+	case "uv":
+		if opts.DryRun {
+			return stepResult{name: "GazePy", action: "dry-run", detail: "Would install: uv tool install 'gaze-py>=0.2'"}
+		}
+		if _, err := opts.LookPath("uv"); err != nil {
+			return stepResult{name: "GazePy", action: "failed", detail: "uv not found", err: err}
+		}
+		if _, err := opts.ExecCmd("uv", "tool", "install", "gaze-py>=0.2"); err != nil {
+			return stepResult{name: "GazePy", action: "failed", detail: "uv tool install failed", err: err}
+		}
+		return stepResult{name: "GazePy", action: "installed", detail: "via uv"}
 	case "skip":
 		return stepResult{name: "GazePy", action: "skipped", detail: "skipped by config"}
 	}
 
-	// Auto: try Homebrew, fall back to skip with hint.
+	// Auto: Homebrew first, uv fallback, skip with hint if neither.
 	if opts.DryRun {
 		if doctor.HasManager(env, doctor.ManagerHomebrew) {
-			return stepResult{name: "GazePy", action: "dry-run", detail: "Would install: brew install unbound-force/tap/gazepy"}
+			return stepResult{name: "GazePy", action: "dry-run", detail: "Would install: brew install unbound-force/tap/gazepy (uv tool install gaze-py as fallback)"}
 		}
-		return stepResult{name: "GazePy", action: "dry-run", detail: "Would install: download from GitHub releases"}
+		if _, err := opts.LookPath("uv"); err == nil {
+			return stepResult{name: "GazePy", action: "dry-run", detail: "Would install: uv tool install 'gaze-py>=0.2'"}
+		}
+		return stepResult{name: "GazePy", action: "dry-run", detail: "Would skip: uv and Homebrew not available. Install uv: https://docs.astral.sh/uv/"}
 	}
 
-	if !doctor.HasManager(env, doctor.ManagerHomebrew) {
+	if doctor.HasManager(env, doctor.ManagerHomebrew) {
+		if out, brewErr := opts.ExecCmd("brew", "install", "unbound-force/tap/gazepy"); brewErr == nil {
+			return stepResult{name: "GazePy", action: "installed", detail: "via Homebrew"}
+		} else {
+			// Homebrew failed (e.g. tap formula not yet published) — fall through to uv.
+			fmt.Fprintf(opts.Stdout, "  GazePy: brew install failed (%v), trying uv...\n", strings.TrimSpace(string(out)))
+		}
+	}
+
+	if _, uvErr := opts.LookPath("uv"); uvErr == nil {
+		_, installErr := opts.ExecCmd("uv", "tool", "install", "gaze-py>=0.2")
+		if installErr == nil {
+			return stepResult{name: "GazePy", action: "installed", detail: "via uv (run `uf setup` again after tap formula lands to switch to Homebrew)"}
+		}
 		return stepResult{
 			name:   "GazePy",
-			action: "skipped",
-			detail: "Homebrew not available. Download from https://github.com/unbound-force/gaze-py/releases",
+			action: "failed",
+			detail: "uv tool install gaze-py>=0.2 failed",
+			err:    installErr,
 		}
 	}
 
-	if _, err := opts.ExecCmd("brew", "install", "unbound-force/tap/gazepy"); err != nil {
-		return stepResult{name: "GazePy", action: "failed", detail: "brew install failed", err: err}
+	return stepResult{
+		name:   "GazePy",
+		action: "skipped",
+		detail: "Homebrew not available and uv not found. Install uv first: https://docs.astral.sh/uv/",
 	}
-	return stepResult{name: "GazePy", action: "installed", detail: "via Homebrew"}
 }
 
 // installGaze installs Gaze if missing per FR-023.
