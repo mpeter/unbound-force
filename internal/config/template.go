@@ -25,7 +25,7 @@ func Template() string {
 #     gaze:
 #       method: auto             # auto | homebrew | rpm | skip
 #     gazepy:
-#       method: auto             # auto | homebrew | skip
+#       method: auto             # auto | homebrew | uv | skip
 #     node:
 #       method: auto             # auto | nvm | fnm | mise | homebrew | skip
 #       version: "22"            # target version when installing
