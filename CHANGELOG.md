@@ -6,6 +6,19 @@ Each entry follows the format: `- <change-name>: <summary>`.
 ## Unreleased
 
 ### Added
+- `upgrade-python-pack`: Upgraded Python convention pack from
+  v1.0.0 to v3.0.0 (v2.0.0 skipped — reserved for gaze-py
+  style compatibility). Added 14 new rules: 12 sourced from
+  Dagster Dignified Python and gaze-py v2.0.0 (CS-017–026,
+  AP-009–010, TA-004–005, TC-014), plus CS-024 (explicit
+  re-exports) and CS-025 (no placeholder nulls) promoted from
+  gaze-py custom pack. Tightened to Go-pack style (no code
+  examples). Key tightening: CS-005 type annotations upgraded
+  from SHOULD to MUST, CS-015 LBYL softened to SHOULD with
+  EAFP carveout, TC-001 relaxed to accept pytest-mock.
+  Rules validated against 5 major AI/LLM Python projects and
+  8 authoritative style sources.
+  (Spec: openspec/changes/upgrade-python-pack/)
 - `python-convention-pack`: Added Python convention pack
   (`python.md`, `python-custom.md`) with 46 rules across 7
   sections (Coding Style, Architectural Patterns, Security
