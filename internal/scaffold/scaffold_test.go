@@ -120,6 +120,31 @@ func TestEmbeddedAssets_SingleMarker(t *testing.T) {
 	}
 }
 
+// TestPythonPack_IsV3 verifies that the embedded python.md
+// convention pack is v3.0.0 and contains rule IDs unique to
+// v3.0.0. This is the content-assertion required by FR-UPP-002
+// (upgrade-python-pack). The byte-identity check in
+// TestEmbeddedAssets_MatchSource confirms both files are
+// identical; this test confirms the content is v3.0.0.
+func TestPythonPack_IsV3(t *testing.T) {
+	content, err := assetContent("opencode/uf/packs/python.md")
+	if err != nil {
+		t.Fatalf("read embedded python.md: %v", err)
+	}
+	s := string(content)
+
+	checks := []string{
+		"version: 3.0.0",
+		"CS-017", // O(1) magic methods — new in v3.0.0
+		"TC-014", // No speculative test infrastructure — new in v3.0.0
+	}
+	for _, want := range checks {
+		if !strings.Contains(s, want) {
+			t.Errorf("embedded python.md missing v3.0.0 marker %q", want)
+		}
+	}
+}
+
 // mapAssetToSource converts an embedded asset relative path to
 // the canonical source path at the repo root. Delegates to
 // mapAssetPath to avoid duplicating the prefix mapping logic.

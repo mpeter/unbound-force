@@ -1,264 +1,124 @@
 ---
 pack_id: python
 language: Python
-version: 1.0.0
+version: 3.0.0
 ---
+<!-- scaffolded by uf vdev -->
 
 # Convention Pack: Python
 
-This convention pack defines Python-specific review
-criteria for The Divisor PR reviewer framework. Persona
-agents load this pack dynamically at review time to
-evaluate Python codebases against language-specific
-coding style, architectural patterns, security checks,
-testing conventions, type annotations, and documentation
-requirements.
-
-Rules use RFC 2119 severity indicators: [MUST] for
-mandatory requirements, [SHOULD] for strong recommendations,
-and [MAY] for optional best practices.
-
----
-
 ## Coding Style
 
-- **CS-001** [MUST] Code MUST be auto-formatted with a
-  consistent formatter (`black`, `ruff format`, or
-  equivalent). No manual formatting overrides. Line
-  length MUST match the project's configured limit.
-  Formatting changes MUST NOT be mixed with logic
-  changes in the same commit.
-
-- **CS-002** [MUST] Imports MUST be auto-sorted with a
-  consistent tool (`isort`, `ruff` with isort rules, or
-  equivalent). Organize in groups separated by blank
-  lines: standard library, third-party packages,
-  local/project modules.
-
-- **CS-003** [MUST] Code MUST pass a linter (`flake8`,
-  `ruff check`, or equivalent) with the project's
-  configured ruleset. No lint errors committed without
-  explicit suppression comments that include the specific
-  code and justification (e.g., `# noqa: E501 - URL`).
-
-- **CS-004** [MUST] Use `snake_case` for functions,
-  methods, variables, and module names. Use `PascalCase`
-  for class names. Use `UPPER_SNAKE_CASE` for module-level
-  constants.
-
-- **CS-005** [MUST] All functions that can fail MUST raise
-  specific exception types or return typed results. Never
-  silently swallow exceptions. Every `except` clause MUST
-  either handle, re-raise, or log the exception with
-  context.
-
-- **CS-006** [MUST] Bare `except:` and `except Exception:`
-  MUST NOT be used unless re-raising or logging with full
-  context. Catch the most specific exception type possible.
-
-- **CS-007** [MUST] Use f-strings for string formatting.
-  Do not use `%` formatting or `.format()` in new code.
-
-- **CS-008** [MUST] No mutable default arguments. Use
-  `None` as default and initialize inside the function
-  body (e.g., `def foo(items=None): items = items or []`).
-
-- **CS-009** [MUST] Use `with` statements for all resource
-  management (files, database connections, locks, network
-  sessions). Never rely on garbage collection for cleanup.
-
-- **CS-010** [SHOULD] Keep functions focused on a single
-  responsibility. Functions exceeding ~50 lines of logic
-  SHOULD be evaluated for decomposition.
-
-- **CS-011** [SHOULD] Use `pathlib.Path` for filesystem
-  path construction instead of `os.path.join` in new code.
-
-- **CS-012** [SHOULD] Use list/dict/set comprehensions
-  where they improve readability. Avoid nested
-  comprehensions deeper than two levels.
-
-- **CS-013** [SHOULD] Prefer `dataclasses`, Pydantic
-  models, or typed NamedTuples over plain dicts for
-  structured data with known schemas.
+- **CS-001** [MUST] Format all Python source files with `ruff format`. No manual formatting overrides.
+- **CS-002** [MUST] Organize imports with `ruff` (isort-compatible) in three groups separated by blank lines: standard library, third-party packages, internal packages. All imports MUST be at module level. Inline imports are forbidden except inside `if TYPE_CHECKING:` guards, to break a genuine circular import (document why), or for conditional optional dependencies guarded by `try/except ImportError`. Enforced by ruff `PLC0415`.
+- **CS-003** [MUST] Use `snake_case` for functions, methods, variables, and modules. Use `PascalCase` for classes. Use `UPPER_SNAKE_CASE` for module-level constants.
+- **CS-004** [MUST] Add Google-style docstrings on all public functions, methods, classes, and modules. Docstrings MUST include a summary line, `Args:`, `Returns:`, and `Raises:` sections.
+- **CS-005** [MUST] Use type annotations on all function signatures (parameters and return types), public and private. Use `from __future__ import annotations` for forward references. Never use `# type: ignore` — fix the annotation or use `typing.cast()` paired with a runtime `assert isinstance(...)` check.
+- **CS-006** [MUST] Raise specific exception types with descriptive messages. Never use bare `raise` or catch bare `except:`. When raising inside an `except` block, always chain: `raise X from e` to preserve the traceback, or `raise X from None` when the original is an irrelevant implementation detail. Enforced by ruff `B904`.
+- **CS-007** [MUST] Avoid mutable module-level variables. No global mutable state. Prefer dependency injection and function parameters.
+- **CS-008** [MUST] Use `None` as default for optional arguments and initialize inside the function body. The mutable-default prohibition is carried by CS-023.
+- **CS-009** [MUST] Use `click` for CLI command routing and option/argument parsing. Use `click.echo()` for all output — never `print()`. Route errors to stderr with `err=True`. Exit with `raise SystemExit(1)` for errors, not `sys.exit()`.
+- **CS-010** [MUST] Use `rich` for terminal output formatting (tables, panels, progress bars). Do not use bare `print()` for user-facing output.
+- **CS-011** [SHOULD] Keep functions focused on a single responsibility. Extract helper functions when a function exceeds ~50 lines.
+- **CS-012** [SHOULD] Use `dataclasses` or `NamedTuple` for structured data types. Avoid plain dicts for domain objects.
+- **CS-013** [SHOULD] Use `Enum` or `StrEnum` instead of raw string/int literals for domain values and classification labels.
+- **CS-014** [MUST] Follow PEP 8 naming conventions. Prefix private/internal names with a single underscore.
+- **CS-015** [SHOULD] Prefer explicit precondition checks (LBYL) for local attribute and type checks where the precondition is cheap and non-racy. EAFP is appropriate at I/O and third-party API call boundaries, or when the operation itself is the authoritative test.
+- **CS-016** [MUST] Never catch an exception and do nothing. At minimum, emit `warnings.warn()` with `stacklevel=2`. Silent `except: pass` and silent `except Exception: pass` blocks are forbidden.
+- **CS-017** [MUST] Functions with four or more parameters beyond `self` MUST use `*` to enforce keyword-only arguments at the call site. Exceptions: Click callback parameters and `@abstractmethod` stubs in ABCs.
+- **CS-018** [MUST] Magic methods (`__len__`, `__bool__`, `__contains__`) and `@property` accessors MUST be O(1). Never iterate, perform I/O, or compute in them.
+- **CS-019** [SHOULD] Declare variables at the site of use. Avoid early declarations used 10 or more lines later. If a value is used only once, inline it at the call site.
+- **CS-020** [SHOULD] Do not destructure objects into single-use locals. Access fields directly at the call site unless the name meaningfully aids readability.
+- **CS-021** [MUST] Maximum indentation depth is 4 levels. Extract helper functions when exceeded.
+- **CS-022** [MUST] Always specify `encoding=` when reading or writing text files. Never rely on the platform default. Enforced by ruff `PLW1514`.
+- **CS-023** [MUST] Never use mutable objects (`list`, `dict`, `set`) as default parameter values. Use `None` and initialize inside the function body. Immutable `None` defaults are acceptable. Enforced by ruff `B006`.
+- **CS-024** [MUST] Re-exports from `__init__.py` MUST be explicit: `from .module import Thing as Thing`. Implicit re-exports are forbidden. Enforced by mypy `--no-implicit-reexport`.
+- **CS-025** [MUST] Never emit placeholder strings in output consumed by users or tooling. Fields that cannot be populated MUST be `None`/`null` — not `"unknown"`, `"n/a"`, or `0`.
+- **CS-026** [MUST] Keep context manager expressions inline in `with` statements. Do not extract them to intermediate variables — the `__enter__`/`__exit__` lifecycle must be visible at a glance.
 
 ---
 
 ## Architectural Patterns
 
-- **AP-001** [MUST] Each module MUST have a single,
-  well-defined responsibility. A module that handles both
-  business logic and I/O coordination is a violation.
-
-- **AP-002** [SHOULD] Dependencies SHOULD be injected
-  rather than hard-instantiated. Functions and constructors
-  SHOULD accept interfaces or abstractions rather than
-  concrete implementations where testability benefits.
-
-- **AP-003** [MUST] Circular imports MUST NOT exist. If
-  module A imports module B, module B MUST NOT import
-  module A (directly or transitively). Use local imports,
-  `TYPE_CHECKING` guards, or extract shared types to break
-  cycles.
-
-- **AP-004** [SHOULD] Configuration SHOULD be loaded from
-  environment variables, config files, or framework
-  settings (e.g., `django.conf.settings`), not hardcoded.
-
-- **AP-005** [SHOULD] Long modules (>500 lines) SHOULD be
-  evaluated for splitting into submodules with a package
-  `__init__.py` that re-exports the public API.
-
-- **AP-006** [MUST] Application code MUST NOT import from
-  test modules. Test utilities shared across test files
-  SHOULD live in `conftest.py` or a dedicated test helpers
-  package.
+- **AP-001** [MUST] Use the `src/` layout: all package code lives under `src/<package>/`. Tests live under `tests/` at the project root. Configure `pythonpath = ["src"]` in `[tool.pytest.ini_options]`.
+- **AP-002** [MUST] Implement core business logic as standalone functions or classes. CLI commands delegate to core modules — no business logic in the CLI layer.
+- **AP-003** [MUST] Use `dataclasses` with JSON serialization for all domain types. Include `to_dict()` methods for JSON output. Use `@dataclass(frozen=True)` for value objects.
+- **AP-004** [MUST] Use `importlib.resources` or `importlib.metadata` for bundling static assets. Do not rely on `__file__` paths at runtime.
+- **AP-005** [SHOULD] Implement the file ownership model: classify files as tool-owned (auto-updated on re-run) or user-owned (never overwritten without `--force`).
+- **AP-006** [MUST] Keep package boundaries clean. Imports flow in one direction: toward the domain core (taxonomy, exceptions), never sideways between subpackages at the same or higher level.
+- **AP-007** [MUST] Use `abc.ABC` with `@abstractmethod` for interfaces where you own all implementations. Use `typing.Protocol` for structural typing against external libraries or duck-typed interfaces you do not control.
+- **AP-008** [MUST] Domain exception classes MUST be defined in the package's taxonomy or exceptions module. No subpackage may define an exception that other subpackages import — both should depend on the shared exceptions module.
+- **AP-009** [MUST] Avoid computation and I/O at module level. Module-level code runs at import time — defer with `@cache`-decorated functions. Primitive constants and `frozenset` literals are acceptable at module level.
+- **AP-010** [MUST] Use `pyproject.toml` as the project configuration file. Do not use `setup.py`, `setup.cfg`, or `requirements.txt` as the primary project definition.
 
 ---
 
 ## Security Checks
 
-- **SC-001** [MUST] Never hardcode secrets, API keys,
-  tokens, or credentials in source code. Secrets MUST be
-  loaded from environment variables, secret managers, or
-  encrypted configuration. Files matching common secret
-  patterns (`.env`, `credentials.json`, `*.pem`, `*.key`)
-  MUST NOT be committed.
-
-- **SC-002** [MUST] All user input MUST be validated and
-  sanitized before use. Use parameterized queries for
-  database access -- never string concatenation or
-  f-string interpolation in SQL.
-
-- **SC-003** [MUST] Use `defusedxml` or equivalent for
-  XML parsing of untrusted input. Never use
-  `xml.etree.ElementTree` or `lxml` with untrusted data
-  without disabling entity expansion. Test-only XML
-  parsing of trusted fixtures MAY use standard library
-  parsers.
-
-- **SC-004** [MUST] Code MUST pass security static
-  analysis (`bandit`, `ruff` S rules, or equivalent).
-  Address all HIGH and CRITICAL findings before merge.
-
-- **SC-005** [SHOULD] Dependencies SHOULD be audited
-  regularly with `pip-audit`, Dependabot, or equivalent
-  tooling. PRs introducing new dependencies SHOULD note
-  maintenance status and known vulnerabilities.
-  Dependencies with critical CVEs MUST NOT be merged.
-
-- **SC-006** [MUST] File operations with user-supplied
-  paths MUST validate against directory traversal. Use
-  `os.path.realpath()` or `pathlib.Path.resolve()` and
-  verify the result is within the expected root.
-
-- **SC-007** [MUST] Never pass user-supplied or external
-  input to `shell=True` subprocess calls. [SHOULD] Prefer
-  `subprocess.run()` with list arguments and `shell=False`
-  for new code. Internal utility wrappers that use
-  `shell=True` with hardcoded or developer-controlled
-  commands are acceptable when documented.
-
-- **SC-008** [SHOULD] Set safe file permissions when
-  creating files: `0o644` for regular files, `0o755` for
-  executable scripts and directories. Avoid world-writable
-  permissions.
+- **SC-001** [MUST] Never hardcode secrets, API keys, tokens, or credentials in source code or bundled assets.
+- **SC-002** [MUST] Never commit `.env` files, credential JSON files, or private keys to the repository.
+- **SC-003** [MUST] Use `pathlib.Path` for all filesystem path construction. Never concatenate paths with string operations or `os.path.join` with unsanitized input.
+- **SC-004** [MUST] Validate target directories before writing files. Ensure the path is within the expected root and does not escape via `..` traversal. Use `Path.resolve()` to canonicalize before comparison.
+- **SC-005** [MUST] Set safe file permissions when creating files: `0o644` for regular files, `0o755` for executable scripts and directories.
+- **SC-006** [SHOULD] Pin dependency versions in `pyproject.toml` or `uv.lock`. Audit dependencies for known vulnerabilities periodically.
 
 ---
 
 ## Testing Conventions
 
-- **TC-001** [MUST] Use `pytest` as the test runner. Do
-  not use `unittest.TestCase` for new tests. Existing
-  `TestCase` subclasses are acceptable until migrated.
-
-- **TC-002** [MUST] New functionality MUST be accompanied
-  by tests covering the primary success path and at least
-  one failure/edge case path.
-
-- **TC-003** [MUST] Bug fixes MUST include a regression
-  test that reproduces the original failure and verifies
-  the fix.
-
-- **TC-004** [MUST] External dependencies (APIs, databases,
-  filesystem, network) MUST be mocked in unit tests using
-  `unittest.mock.patch`, `pytest-mock`, or `pytest`
-  fixtures. Tests MUST NOT require external services or
-  network connectivity.
-
-- **TC-005** [MUST] Tests MUST be isolated -- each test
-  MUST be independently runnable without depending on
-  execution order or shared mutable state.
-
-- **TC-006** [SHOULD] Use `pytest.mark.parametrize` for
-  table-driven tests when exercising multiple input/output
-  combinations for the same function.
-
-- **TC-007** [SHOULD] Test names SHOULD clearly describe
-  the scenario: `test_<function>_<condition>_<expected>`
-  (e.g., `test_parse_empty_input_returns_none`).
-
-- **TC-008** [SHOULD] Use `factory-boy`, `pytest` fixtures,
-  or equivalent for test data construction. Avoid large
-  inline dicts or manual object construction repeated
-  across tests.
-
-- **TC-009** [SHOULD] Coverage SHOULD be measured with
-  `pytest-cov` or equivalent. A `--cov-fail-under`
-  threshold SHOULD be enforced in CI to prevent coverage
-  regression.
-
-- **TC-010** [SHOULD] Place test files in a `tests/`
-  directory mirroring the source structure, or co-locate
-  with source files using the `test_<module>.py` naming
-  convention. Test file naming MUST follow the project's
-  established convention consistently.
-
-- **TC-011** [SHOULD] Use `conftest.py` for shared
-  fixtures. Do not duplicate fixture definitions across
-  test files.
+- **TC-001** [MUST] Use `pytest` as the test framework. Do not use `unittest.TestCase` style tests. Use `monkeypatch` for simple value/attribute substitution. Use `pytest-mock` or `unittest.mock` for complex mock behavior requiring call tracking, `side_effect`, or `return_value` configuration.
+- **TC-002** [MUST] Use `assert` statements directly. No custom assertion helper libraries.
+- **TC-003** [MUST] Name test files `test_*.py` and test functions `test_*`. Use descriptive names that convey the scenario being tested.
+- **TC-004** [MUST] Use `tmp_path` fixture for all tests that touch the filesystem. No shared mutable state between test cases.
+- **TC-005** [MUST] Use `@pytest.mark.parametrize` for table-driven tests. Never use a `for` loop inside a test to exercise multiple inputs — a loop reports only one failure and the test name does not communicate which case failed.
+- **TC-006** [SHOULD] Use `@pytest.fixture` for shared setup. Prefer function-scoped fixtures to minimize coupling.
+- **TC-007** [SHOULD] Name acceptance tests after spec success criteria (e.g., `test_sc001_comprehensive_detection`).
+- **TC-008** [MUST] Assert specific expected values — not just truthiness, non-emptiness, or exit codes. Assert return values, dataclass fields, and JSON structure.
+- **TC-009** [MUST] Ensure tests do not depend on execution order. Each test MUST be independently runnable.
+- **TC-010** [SHOULD] Use `pytest.mark.slow` to mark tests that spawn subprocesses or analyze entire projects.
+- **TC-011** [SHOULD] Place test fixtures in `tests/testdata/` directories. Add `norecursedirs = ["tests/testdata"]` to `[tool.pytest.ini_options]` to prevent pytest from collecting them as tests.
+- **TC-012** [MUST] Test error paths and edge cases, not just happy paths. Every public function MUST have at least one failure-case test.
+- **TC-013** [MUST] Do not test private (underscore-prefixed) functions directly unless the public API cannot exercise the scenario without prohibitive fixture complexity. If justified, include a comment explaining why the public API is insufficient.
+- **TC-014** [MUST] Do not add parameters to test fakes or fixtures that are not exercised by actual production code paths. Speculative infrastructure ("might be useful later") is dead code.
 
 ---
 
 ## Type Annotations
 
-- **TA-001** [SHOULD] All new public functions and methods
-  SHOULD have type annotations on parameters and return
-  values.
-
-- **TA-002** [SHOULD] Run a type checker (`mypy`, `pyright`,
-  `ty`, or equivalent) and address type errors
-  incrementally -- do not disable the type checker globally.
-
-- **TA-003** [SHOULD] Use built-in generics (`list[str]`,
-  `dict[str, int]`, `X | None`) for Python 3.10+. For
-  Python 3.9 and below, use `typing` module constructs
-  (`Optional`, `Union`, `List`, `Dict`).
-
-- **TA-004** [SHOULD] Prefer `Protocol` classes over ABC
-  for structural typing where duck typing is the intent.
+- **TA-001** [MUST] Run a type checker (`mypy` or `pyright`) in CI. Address type errors — do not disable the type checker globally.
+- **TA-002** [MUST] Use built-in generics for Python 3.10+: `list[str]`, `dict[str, int]`, `X | None`. Do not use `typing.Optional`, `typing.Union`, `typing.List`, or `typing.Dict` in new code.
+- **TA-003** [MUST] Use `abc.ABC` for owned interfaces and `typing.Protocol` for structural typing against external code. See AP-007.
+- **TA-004** [MUST] Use `Literal` types for strings or integers compared with `==` or `in` against a fixed set of valid values. Bare `str` allows typos caught only at runtime.
+- **TA-005** [MUST] Add a runtime `isinstance()` assertion before every `typing.cast()` call, unless the type was just narrowed by an explicit type guard. `typing.cast()` is compile-time only and provides no runtime safety without the assertion.
 
 ---
 
 ## Documentation Requirements
 
-- **DR-001** [MUST] All public functions, classes, and
-  methods MUST have docstrings. Use a consistent docstring
-  format (Google-style, NumPy-style, or reStructuredText)
-  across the project.
+- **DR-001** [MUST] Write docstrings on every public function, method, class, and module. Use Google-style format with `Args:`, `Returns:`, and `Raises:` sections.
+- **DR-002** [MUST] Use RFC 2119 language (MUST, SHOULD, MAY, MUST NOT) for all requirement statements in specifications and governance documents.
+- **DR-003** [SHOULD] Write acceptance criteria in Given/When/Then format with specific, verifiable outcomes.
+- **DR-004** [SHOULD] Number functional requirements as FR-NNN and success criteria as SC-NNN in specification artifacts.
+- **DR-005** [MUST] Use Conventional Commits format for all commit messages: `type: description` (e.g., `feat:`, `fix:`, `docs:`, `chore:`, `refactor:`).
 
-- **DR-002** [MUST] Commit messages MUST use Conventional
-  Commits format: `type: description` (e.g., `feat:`,
-  `fix:`, `docs:`, `chore:`, `refactor:`).
+---
 
-- **DR-003** [SHOULD] User-visible changes SHOULD be
-  recorded in a changelog or release notes following the
-  project's established format.
+## Ruff Rule Groups
 
-- **DR-004** [SHOULD] Configuration options, environment
-  variables, and feature flags SHOULD be documented in
-  the project README or a dedicated configuration
-  reference.
+The following ruff rule groups enforce the conventions above. Include them in
+`[tool.ruff.lint] select` for any project using this pack:
+
+| Group | Rules enforced |
+|-------|---------------|
+| `B` | CS-006 exception chaining (B904), CS-023 mutable defaults (B006) |
+| `PL` | CS-017 keyword-only args (PLR0913), CS-002 inline imports (PLC0415) |
+| `TRY` | CS-015 LBYL boundary discipline (TRY300) |
+| `EM` | CS-006 exception message hygiene (EM101, EM102) |
+| `G` | CS-016 logging format correctness |
+| `W` | CS-022 encoding= on file I/O (PLW1514) |
+
+Suggested ignores: `PLR0913` (too-many-arguments), `PLC0415` (import not at top-level),
+`TRY003` (long exception messages), `EM101`/`EM102` (string literals in raise).
 
 ---
 
