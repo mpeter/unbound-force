@@ -24,6 +24,8 @@ func Template() string {
 #       method: auto             # auto | homebrew | curl | skip
 #     gaze:
 #       method: auto             # auto | homebrew | rpm | skip
+#     gazepy:
+#       method: auto             # auto | homebrew | skip
 #     node:
 #       method: auto             # auto | nvm | fnm | mise | homebrew | skip
 #       version: "22"            # target version when installing
@@ -74,6 +76,7 @@ func Template() string {
 #   skip: []                     # check names to skip
 #   tools:                       # override tool severity
 #     gaze: recommended          # required | recommended | optional
+#     gazepy: recommended        # required | recommended | optional
 
 # ─── Workflow ─────────────────────────────────────────────────
 # Controls hero lifecycle workflow.

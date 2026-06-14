@@ -1340,6 +1340,15 @@ func initSubTools(opts *Options) []subToolResult {
 		return nil
 	}
 
+	// Resolve language for forLang filtering. Mirrors the logic in Run().
+	lang := opts.Lang
+	if lang == "" {
+		lang = detectLang(opts.TargetDir)
+	}
+	if lang == "" {
+		lang = "default"
+	}
+
 	// Default Stdout and file I/O for direct callers (tests) that bypass Run().
 	if opts.Stdout == nil {
 		opts.Stdout = io.Discard
@@ -1425,28 +1434,39 @@ func initSubTools(opts *Options) []subToolResult {
 	// simpleTools defines Group B tools. Each entry maps a tool
 	// name to its sentinel path (relative to TargetDir), result
 	// name, display label, and optional extra args for ExecCmd.
+	// forLang, if non-empty, restricts the tool to projects whose
+	// detected language matches. Empty means language-agnostic.
 	type simpleTool struct {
 		name     string   // config + LookPath key
 		sentinel string   // path to check (skip init if exists)
 		result   string   // subToolResult.name
 		label    string   // display text for logf
 		args     []string // extra args after "init"
+		forLang  string   // language filter ("" = any)
 	}
 
 	simpleTools := []simpleTool{
-		{"replicator", ".uf/replicator", ".uf/replicator/",
-			"Replicator workspace", nil},
-		{"specify", ".specify", ".specify/",
-			"Speckit framework", nil},
-		{"openspec", filepath.Join("openspec", "config.yaml"),
-			"openspec/", "OpenSpec framework",
-			[]string{"--tools", "opencode"}},
-		{"gaze", filepath.Join(".opencode", "agents", "gaze-reporter.md"),
-			"gaze", "Gaze integration", nil},
+		{name: "replicator", sentinel: ".uf/replicator",
+			result: ".uf/replicator/", label: "Replicator workspace"},
+		{name: "specify", sentinel: ".specify",
+			result: ".specify/", label: "Speckit framework"},
+		{name: "openspec", sentinel: filepath.Join("openspec", "config.yaml"),
+			result: "openspec/", label: "OpenSpec framework",
+			args: []string{"--tools", "opencode"}},
+		{name: "gaze",
+			sentinel: filepath.Join(".opencode", "agents", "gaze-reporter.md"),
+			result:   "gaze", label: "Gaze integration"},
+		{name: "gazepy",
+			sentinel: filepath.Join(".opencode", "agents", "gaze-reporter.md"),
+			result:   "gaze", label: "Gaze integration (Python)",
+			forLang: "python"},
 	}
 
 	for _, tool := range simpleTools {
 		if shouldSkipTool(tool.name) {
+			continue
+		}
+		if tool.forLang != "" && tool.forLang != lang {
 			continue
 		}
 		if _, err := opts.LookPath(tool.name); err != nil {

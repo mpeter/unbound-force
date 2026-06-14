@@ -6181,3 +6181,118 @@ func TestMigrateCommandDir_MergeComplex(t *testing.T) {
 		t.Error("old copy of conflict.md should be removed")
 	}
 }
+
+// --- forLang filtering tests (FR-PGI-001) ---
+
+// TestForLangFilter_PythonToolSkippedOnGoProject verifies that a
+// simpleTool with forLang:"python" does not run when lang=="go".
+func TestForLangFilter_PythonToolSkippedOnGoProject(t *testing.T) {
+	dir := t.TempDir()
+
+	// Go project: go.mod present.
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/test\n\ngo 1.21\n"), 0o644); err != nil {
+		t.Fatalf("write go.mod: %v", err)
+	}
+
+	rec := &scaffoldCmdRecorder{errors: map[string]error{}}
+
+	opts := &Options{
+		TargetDir: dir,
+		LookPath: stubScaffoldLookPath(map[string]string{
+			"gazepy": "/usr/local/bin/gazepy",
+		}),
+		ExecCmd: rec.execCmd,
+	}
+
+	_ = initSubTools(opts)
+
+	// gazepy init should NOT have been called — forLang:"python" on a Go project.
+	for _, call := range rec.calls {
+		if strings.HasPrefix(call, "gazepy") {
+			t.Errorf("gazepy init was called on a Go project, got: %q", call)
+		}
+	}
+}
+
+// TestForLangFilter_PythonToolRunsOnPythonProject verifies that a
+// simpleTool with forLang:"python" runs when lang=="python".
+func TestForLangFilter_PythonToolRunsOnPythonProject(t *testing.T) {
+	dir := t.TempDir()
+
+	// Python project: pyproject.toml present.
+	if err := os.WriteFile(filepath.Join(dir, "pyproject.toml"), []byte("[project]\nname = \"test\"\n"), 0o644); err != nil {
+		t.Fatalf("write pyproject.toml: %v", err)
+	}
+
+	// Create the sentinel directory so gazepy init can write its file.
+	agentsDir := filepath.Join(dir, ".opencode", "agents")
+	if err := os.MkdirAll(agentsDir, 0o755); err != nil {
+		t.Fatalf("mkdir agents: %v", err)
+	}
+
+	rec := &scaffoldCmdRecorder{errors: map[string]error{}}
+
+	opts := &Options{
+		TargetDir: dir,
+		LookPath: stubScaffoldLookPath(map[string]string{
+			"gazepy": "/usr/local/bin/gazepy",
+		}),
+		ExecCmd: rec.execCmd,
+	}
+
+	_ = initSubTools(opts)
+
+	gazepyCalled := false
+	for _, call := range rec.calls {
+		if strings.HasPrefix(call, "gazepy") {
+			gazepyCalled = true
+			break
+		}
+	}
+	if !gazepyCalled {
+		t.Errorf("expected gazepy init to be called on a Python project, calls: %v", rec.calls)
+	}
+}
+
+// TestForLangFilter_LanguageAgnosticToolRunsForAnyLang verifies that
+// a simpleTool with empty forLang runs regardless of project language.
+func TestForLangFilter_LanguageAgnosticToolRunsForAnyLang(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		marker  string
+		content string
+	}{
+		{"go", "go.mod", "module example.com/test\n\ngo 1.21\n"},
+		{"python", "pyproject.toml", "[project]\nname = \"test\"\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			if err := os.WriteFile(filepath.Join(dir, tc.marker), []byte(tc.content), 0o644); err != nil {
+				t.Fatalf("write %s: %v", tc.marker, err)
+			}
+
+			rec := &scaffoldCmdRecorder{errors: map[string]error{}}
+
+			opts := &Options{
+				TargetDir: dir,
+				LookPath: stubScaffoldLookPath(map[string]string{
+					"gaze": "/usr/local/bin/gaze",
+				}),
+				ExecCmd: rec.execCmd,
+			}
+
+			_ = initSubTools(opts)
+
+			gazeCalled := false
+			for _, call := range rec.calls {
+				if strings.HasPrefix(call, "gaze") && !strings.HasPrefix(call, "gazepy") {
+					gazeCalled = true
+					break
+				}
+			}
+			if !gazeCalled {
+				t.Errorf("expected gaze init (no forLang) to be called on %s project, calls: %v", tc.name, rec.calls)
+			}
+		})
+	}
+}
