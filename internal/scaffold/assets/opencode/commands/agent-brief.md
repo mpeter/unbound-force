@@ -94,9 +94,9 @@ modes.
 
 If in create mode, generate AGENTS.md using the project analysis.
 
-The target AGENTS.md has 10 sections. Sections 1-5 and 10 are
-LLM-generated from project data. Sections 6-8 are verbatim
-templates inserted conditionally. Section 9 is detected and
+The target AGENTS.md has 11 sections. Sections 1-6 and 11 are
+LLM-generated from project data. Sections 7-9 are verbatim
+templates inserted conditionally. Section 10 is detected and
 respected from the Go binary.
 
 #### Section 1: Project Overview (LLM-generated)
@@ -139,7 +139,25 @@ list of key attributes:
   (MUST/SHOULD/MAY), Given/When/Then scenarios, FR-NNN
   numbering, line length < 72
 
-#### Section 5: Testing Conventions (LLM-generated)
+#### Section 5: Technology Stack (LLM-generated)
+
+Emit a `## Technology Stack` heading. Derive content from the
+project's dependency and build files (read in Step 2):
+
+- **Language**: name + version (e.g., `Go 1.25+`, `Python 3.11+`,
+  `TypeScript 5.x`)
+- **Package manager**: (e.g., `uv`, `npm`, `go modules`)
+- **Build tool**: (e.g., `hatchling`, `goreleaser`, `tsc`)
+- **Key runtime dependencies**: 2-6 most important libraries with
+  their purpose (e.g., `click — CLI framework`, `cobra — CLI`)
+- **Linter / formatter**: (e.g., `ruff`, `golangci-lint`, `eslint`)
+- **Test runner**: (e.g., `pytest`, `go test`, `vitest`)
+- **CI**: workflow file names and their purpose
+
+Use a bullet list. Omit entries that cannot be determined from
+the project files — do not guess or invent versions.
+
+#### Section 6: Testing Conventions (LLM-generated)
 
 - Framework and version
 - Test naming pattern (e.g., `TestXxx_Description`)
@@ -148,7 +166,7 @@ list of key attributes:
 - Special requirements (e.g., drift detection for embedded
   assets)
 
-#### Section 6: Behavioral Rules (verbatim template, conditional)
+#### Section 7: Behavioral Rules (verbatim template, conditional)
 
 **Condition**: Insert ONLY when `.specify/memory/constitution.md`
 exists. If no constitution is detected, omit this section entirely.
@@ -195,7 +213,7 @@ These rules are non-negotiable. Violations are CRITICAL severity.
 | `/review-pr [N]` | Post-PR (GitHub) | Single agent, CI analysis |
 ```
 
-#### Section 7: Specification Workflow (verbatim template, conditional)
+#### Section 8: Specification Workflow (verbatim template, conditional)
 
 **Condition**: Insert ONLY when `specs/` directory has numbered
 subdirectories (`NNN-*/`) OR `openspec/` directory exists. If
@@ -236,7 +254,7 @@ changes, CI changes, data model changes.
 hotfixes (retroactively documented).
 ```
 
-#### Section 8: Knowledge Retrieval (verbatim template, conditional)
+#### Section 9: Knowledge Retrieval (verbatim template, conditional)
 
 **Condition**: Insert ONLY when `opencode.json` contains a Dewey
 MCP server configuration. If Dewey is not configured, omit this
@@ -262,7 +280,7 @@ for exact string matching, known file paths, or non-Markdown
 content (Go source, JSON, YAML).
 ```
 
-#### Section 9: Convention Packs (detected, not generated)
+#### Section 10: Convention Packs (detected, not generated)
 
 **Condition**: If `.opencode/uf/packs/` directory exists and
 contains `.md` files, check if AGENTS.md already has a
@@ -289,7 +307,7 @@ before writing or reviewing code.
 
 - If no `.opencode/uf/packs/` directory exists → omit section.
 
-#### Section 10: Architecture (LLM-generated)
+#### Section 11: Architecture (LLM-generated)
 
 - Describe the dominant design patterns in the project
 - Key architectural patterns (e.g., Options/Result structs,
@@ -334,12 +352,13 @@ line (case-insensitive):
 | 2 | Build & Test Commands | `build`, `development` | No |
 | 3 | Project Structure | `structure`, `layout`, `directory` | No |
 | 4 | Coding Conventions | `convention`, `coding standard`, `style guide`, `coding convention` | No |
-| 5 | Testing Conventions | `test` | No |
-| 6 | Behavioral Rules | `behavioral`, `rule`, `constraint` | Constitution |
-| 7 | Specification Workflow | `specification`, `spec framework`, `speckit`, `openspec`, `spec workflow` | specs/openspec |
-| 8 | Knowledge Retrieval | `knowledge`, `retrieval`, `dewey` | Dewey MCP |
-| 9 | Convention Packs | `convention pack` | Packs dir |
-| 10 | Architecture | `architect`, `pattern`, `design` | No |
+| 5 | Technology Stack | `technolog`, `tech stack`, `active technologies` | No |
+| 6 | Testing Conventions | `test` | No |
+| 7 | Behavioral Rules | `behavioral`, `rule`, `constraint` | Constitution |
+| 8 | Specification Workflow | `specification`, `spec framework`, `speckit`, `openspec`, `spec workflow` | specs/openspec |
+| 9 | Knowledge Retrieval | `knowledge`, `retrieval`, `dewey` | Dewey MCP |
+| 10 | Convention Packs | `convention pack` | Packs dir |
+| 11 | Architecture | `architect`, `pattern`, `design` | No |
 
 Record which sections are found and which are missing.
 For conditional sections, only flag as missing if their
@@ -388,18 +407,18 @@ directory exists. Flag:
 
 #### 4d: Scoring
 
-Calculate the overall effectiveness label. Count the 5 core
-sections (1-5) as essential. Count conditional sections (6-8)
-only when their triggers are detected. Section 9 (Convention
-Packs) and 10 (Architecture) are recommended.
+Calculate the overall effectiveness label. Count the 6 core
+sections (1-6) as essential. Count conditional sections (7-9)
+only when their triggers are detected. Section 10 (Convention
+Packs) and 11 (Architecture) are recommended.
 
 | Label | Criteria |
 |-------|----------|
 | Excellent | All essential + all triggered conditional + all recommended |
 | Strong | All essential + all triggered conditional |
-| Adequate | 4-5/5 essential |
-| Weak | 2-3/5 essential |
-| Missing | 0-1/5 essential |
+| Adequate | 4-6/6 essential |
+| Weak | 2-3/6 essential |
+| Missing | 0-1/6 essential |
 
 #### 4e: Generate Report
 
@@ -416,12 +435,13 @@ Produce a structured report:
 | 2 | Build & Test | ✅ | [notes] |
 | 3 | Project Structure | ✅/⚠ | [stale dirs if any] |
 | 4 | Coding Conventions | ✅ | [notes] |
-| 5 | Testing Conventions | ✅ | [notes] |
-| 6 | Behavioral Rules | ✅/⊘ | [conditional] |
-| 7 | Specification Workflow | ✅/⊘ | [conditional] |
-| 8 | Knowledge Retrieval | ✅/⊘ | [conditional] |
-| 9 | Convention Packs | ✅/⊘ | [detected] |
-| 10 | Architecture | ✅ | [notes] |
+| 5 | Technology Stack | ✅ | [notes] |
+| 6 | Testing Conventions | ✅ | [notes] |
+| 7 | Behavioral Rules | ✅/⊘ | [conditional] |
+| 8 | Specification Workflow | ✅/⊘ | [conditional] |
+| 9 | Knowledge Retrieval | ✅/⊘ | [conditional] |
+| 10 | Convention Packs | ✅/⊘ | [detected] |
+| 11 | Architecture | ✅ | [notes] |
 
 ### Selective Refresh
 
@@ -433,7 +453,7 @@ Structure sections, or "No staleness detected."]
 | Metric | Value | Status |
 |--------|-------|--------|
 | Total lines | N | ✅/⚠ |
-| Essential sections | N/5 | ✅/❌ |
+| Essential sections | N/6 | ✅/❌ |
 | Conditional sections | N/N | ✅/⚠ |
 | Build code blocks | N | ✅/⚠ |
 | Governance rules | N/8 | ✅/⚠ |
