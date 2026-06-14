@@ -326,3 +326,21 @@ func TestDetectSections(t *testing.T) {
 		t.Error("should not detect 'sandbox' section")
 	}
 }
+
+// TestTemplate_ContainsGazePy verifies that the config template
+// includes the gazepy setup tool entry (drift detection for FR-PGI-004).
+func TestTemplate_ContainsGazePy(t *testing.T) {
+	tmpl := Template()
+
+	if !strings.Contains(tmpl, "gazepy:") {
+		t.Error("config template missing 'gazepy:' entry under setup.tools")
+	}
+	if !strings.Contains(tmpl, "# auto | homebrew | skip") {
+		// The comment is shared with other tools, so this is a sanity check.
+		t.Error("config template missing method comment for gazepy entry")
+	}
+	// Doctor section.
+	if !strings.Contains(tmpl, "gazepy: recommended") {
+		t.Error("config template missing 'gazepy: recommended' entry under doctor.tools")
+	}
+}

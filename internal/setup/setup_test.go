@@ -186,6 +186,7 @@ func TestSetupRun_AllPresent(t *testing.T) {
 			"brew":          "/opt/homebrew/bin/brew",
 			"opencode":      "/usr/local/bin/opencode",
 			"gaze":          "/usr/local/bin/gaze",
+			"gazepy":        "/usr/local/bin/gazepy",
 			"gh":            "/usr/local/bin/gh",
 			"node":          "/usr/local/bin/node",
 			"npm":           "/usr/local/bin/npm",
@@ -3555,6 +3556,187 @@ func TestInstallGaze_ExplicitHomebrewDryRun(t *testing.T) {
 	env := doctor.DetectedEnvironment{}
 
 	result := installGaze(opts, env)
+	if result.action != "dry-run" {
+		t.Errorf("action = %q, want %q", result.action, "dry-run")
+	}
+	if !strings.Contains(result.detail, "brew install") {
+		t.Errorf("detail = %q, want to contain 'brew install'", result.detail)
+	}
+}
+
+// --- installGazePy tests (mirrors installGaze pattern) ---
+
+func TestInstallGazePy_AlreadyInstalled(t *testing.T) {
+	opts := &Options{
+		LookPath: stubLookPath(map[string]string{
+			"gazepy": "/usr/local/bin/gazepy",
+		}),
+	}
+	env := doctor.DetectedEnvironment{}
+
+	result := installGazePy(opts, env)
+	if result.action != "already installed" {
+		t.Errorf("action = %q, want %q", result.action, "already installed")
+	}
+	if result.name != "GazePy" {
+		t.Errorf("name = %q, want %q", result.name, "GazePy")
+	}
+}
+
+func TestInstallGazePy_DryRunWithHomebrew(t *testing.T) {
+	opts := &Options{
+		DryRun:   true,
+		LookPath: stubLookPath(map[string]string{}),
+	}
+	env := doctor.DetectedEnvironment{
+		Managers: []doctor.ManagerInfo{
+			{Kind: doctor.ManagerHomebrew, Path: "/opt/homebrew/bin/brew"},
+		},
+	}
+
+	result := installGazePy(opts, env)
+	if result.action != "dry-run" {
+		t.Errorf("action = %q, want %q", result.action, "dry-run")
+	}
+	if !strings.Contains(result.detail, "brew install") {
+		t.Errorf("detail = %q, want to contain 'brew install'", result.detail)
+	}
+	if !strings.Contains(result.detail, "gazepy") {
+		t.Errorf("detail = %q, want to contain 'gazepy'", result.detail)
+	}
+}
+
+func TestInstallGazePy_DryRunNoHomebrew(t *testing.T) {
+	opts := &Options{
+		DryRun:   true,
+		LookPath: stubLookPath(map[string]string{}),
+	}
+	env := doctor.DetectedEnvironment{}
+
+	result := installGazePy(opts, env)
+	if result.action != "dry-run" {
+		t.Errorf("action = %q, want %q", result.action, "dry-run")
+	}
+	if !strings.Contains(result.detail, "GitHub releases") {
+		t.Errorf("detail = %q, want to contain 'GitHub releases'", result.detail)
+	}
+}
+
+func TestInstallGazePy_NoHomebrewSkip(t *testing.T) {
+	opts := &Options{
+		LookPath: stubLookPath(map[string]string{}),
+	}
+	env := doctor.DetectedEnvironment{}
+
+	result := installGazePy(opts, env)
+	if result.action != "skipped" {
+		t.Errorf("action = %q, want %q", result.action, "skipped")
+	}
+	if !strings.Contains(result.detail, "Homebrew not available") {
+		t.Errorf("detail = %q, want to contain 'Homebrew not available'", result.detail)
+	}
+	if !strings.Contains(result.detail, "gaze-py") {
+		t.Errorf("detail = %q, want to contain 'gaze-py' release link", result.detail)
+	}
+}
+
+func TestInstallGazePy_HomebrewInstallSuccess(t *testing.T) {
+	rec := &cmdRecorder{
+		outputs: map[string]string{
+			"brew install unbound-force/tap/gazepy": "==> Installing gazepy",
+		},
+	}
+	opts := &Options{
+		LookPath: stubLookPath(map[string]string{}),
+		ExecCmd:  rec.execCmd,
+	}
+	env := doctor.DetectedEnvironment{
+		Managers: []doctor.ManagerInfo{
+			{Kind: doctor.ManagerHomebrew, Path: "/opt/homebrew/bin/brew"},
+		},
+	}
+
+	result := installGazePy(opts, env)
+	if result.action != "installed" {
+		t.Errorf("action = %q, want %q", result.action, "installed")
+	}
+	if !strings.Contains(result.detail, "Homebrew") {
+		t.Errorf("detail = %q, want to contain 'Homebrew'", result.detail)
+	}
+}
+
+func TestInstallGazePy_HomebrewInstallFailed(t *testing.T) {
+	rec := &cmdRecorder{
+		errors: map[string]error{
+			"brew install unbound-force/tap/gazepy": fmt.Errorf("brew error"),
+		},
+	}
+	opts := &Options{
+		LookPath: stubLookPath(map[string]string{}),
+		ExecCmd:  rec.execCmd,
+	}
+	env := doctor.DetectedEnvironment{
+		Managers: []doctor.ManagerInfo{
+			{Kind: doctor.ManagerHomebrew, Path: "/opt/homebrew/bin/brew"},
+		},
+	}
+
+	result := installGazePy(opts, env)
+	if result.action != "failed" {
+		t.Errorf("action = %q, want %q", result.action, "failed")
+	}
+	if result.err == nil {
+		t.Error("expected non-nil error")
+	}
+}
+
+func TestInstallGazePy_ExplicitHomebrewMethod(t *testing.T) {
+	rec := &cmdRecorder{
+		outputs: map[string]string{
+			"brew install unbound-force/tap/gazepy": "installed",
+		},
+	}
+	opts := &Options{
+		LookPath: stubLookPath(map[string]string{}),
+		ExecCmd:  rec.execCmd,
+		ToolMethods: map[string]config.ToolConfig{
+			"gazepy": {Method: "homebrew"},
+		},
+	}
+	env := doctor.DetectedEnvironment{}
+
+	result := installGazePy(opts, env)
+	if result.action != "installed" {
+		t.Errorf("action = %q, want %q", result.action, "installed")
+	}
+}
+
+func TestInstallGazePy_ConfigSkip(t *testing.T) {
+	opts := &Options{
+		LookPath: stubLookPath(map[string]string{}),
+		ToolMethods: map[string]config.ToolConfig{
+			"gazepy": {Method: "skip"},
+		},
+	}
+	env := doctor.DetectedEnvironment{}
+
+	result := installGazePy(opts, env)
+	if result.action != "skipped" {
+		t.Errorf("action = %q, want %q", result.action, "skipped")
+	}
+}
+
+func TestInstallGazePy_ExplicitHomebrewDryRun(t *testing.T) {
+	opts := &Options{
+		DryRun:   true,
+		LookPath: stubLookPath(map[string]string{}),
+		ToolMethods: map[string]config.ToolConfig{
+			"gazepy": {Method: "homebrew"},
+		},
+	}
+	env := doctor.DetectedEnvironment{}
+
+	result := installGazePy(opts, env)
 	if result.action != "dry-run" {
 		t.Errorf("action = %q, want %q", result.action, "dry-run")
 	}

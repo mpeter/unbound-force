@@ -114,6 +114,10 @@ var coreToolSpecs = []toolSpec{
 		recommended: true,
 	},
 	{
+		name:        "gazepy",
+		recommended: true,
+	},
+	{
 		name:         "node",
 		versionCmd:   []string{"node", "--version"},
 		versionParse: parseNodeVersion,

@@ -4354,3 +4354,72 @@ func TestCheckAnyTool_FirstBinaryWins(t *testing.T) {
 		t.Errorf("message = %q, want %q (first binary wins)", result.Message, "black installed")
 	}
 }
+
+// --- gazepy doctor check tests (FR-PGI-003) ---
+
+// TestGazePyCheck_MissingDefaultSeverity verifies that a missing
+// gazepy binary with no override reports as recommended (Warn).
+func TestGazePyCheck_MissingDefaultSeverity(t *testing.T) {
+	dir := t.TempDir()
+	opts := &Options{
+		TargetDir:    dir,
+		LookPath:     func(string) (string, error) { return "", fmt.Errorf("not found") },
+		ExecCmd:      func(string, ...string) ([]byte, error) { return nil, nil },
+		EvalSymlinks: func(s string) (string, error) { return s, nil },
+		Getenv:       func(string) string { return "" },
+		ReadFile:     func(string) ([]byte, error) { return nil, os.ErrNotExist },
+	}
+
+	spec := toolSpec{name: "gazepy", recommended: true}
+	result := checkOneTool(spec, opts, DetectedEnvironment{})
+
+	// Missing recommended tool → Warn severity.
+	if result.Severity != Warn {
+		t.Errorf("severity = %v, want Warn (recommended default)", result.Severity)
+	}
+}
+
+// TestGazePyCheck_SeverityOverrideRequired verifies that
+// ToolSeverities can escalate gazepy to required (Fail when missing).
+func TestGazePyCheck_SeverityOverrideRequired(t *testing.T) {
+	dir := t.TempDir()
+	opts := &Options{
+		TargetDir:       dir,
+		LookPath:        func(string) (string, error) { return "", fmt.Errorf("not found") },
+		ExecCmd:         func(string, ...string) ([]byte, error) { return nil, nil },
+		EvalSymlinks:    func(s string) (string, error) { return s, nil },
+		Getenv:          func(string) string { return "" },
+		ReadFile:        func(string) ([]byte, error) { return nil, os.ErrNotExist },
+		ToolSeverities:  map[string]string{"gazepy": "required"},
+	}
+
+	spec := toolSpec{name: "gazepy", recommended: true}
+	result := checkOneTool(spec, opts, DetectedEnvironment{})
+
+	if result.Severity != Fail {
+		t.Errorf("severity = %v, want Fail (required override)", result.Severity)
+	}
+}
+
+// TestGazePyCheck_Present verifies that a present gazepy binary
+// reports as Pass.
+func TestGazePyCheck_Present(t *testing.T) {
+	dir := t.TempDir()
+	opts := &Options{
+		TargetDir: dir,
+		LookPath: stubLookPathSimple(map[string]bool{
+			"gazepy": true,
+		}),
+		ExecCmd:      func(string, ...string) ([]byte, error) { return nil, nil },
+		EvalSymlinks: func(s string) (string, error) { return s, nil },
+		Getenv:       func(string) string { return "" },
+		ReadFile:     func(string) ([]byte, error) { return nil, os.ErrNotExist },
+	}
+
+	spec := toolSpec{name: "gazepy", recommended: true}
+	result := checkOneTool(spec, opts, DetectedEnvironment{})
+
+	if result.Severity != Pass {
+		t.Errorf("severity = %v, want Pass (gazepy found)", result.Severity)
+	}
+}
