@@ -654,6 +654,14 @@ to external CLIs when they are available:
   and `.opencode/agents/gaze-reporter.md` does not exist,
   `uf init` calls `gaze init` automatically.
 
+- **Gaze (Python)**: Python Gaze agent files (e.g.,
+  `gazepy-reporter.md`) are created by `gazepy init` (not
+  embedded). If `gazepy` is in PATH and
+  `.opencode/agents/gazepy-reporter.md` does not exist,
+  `uf init` calls `gazepy init` automatically. Only runs in
+  Python projects (detected by presence of `pyproject.toml`,
+  `setup.py`, or equivalent).
+
 All delegations are optional — if a tool is not installed,
 `uf init` skips its delegation silently (Constitution
 Principle II — Composability First).

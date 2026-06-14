@@ -1457,8 +1457,8 @@ func initSubTools(opts *Options) []subToolResult {
 			sentinel: filepath.Join(".opencode", "agents", "gaze-reporter.md"),
 			result:   "gaze", label: "Gaze integration"},
 		{name: "gazepy",
-			sentinel: filepath.Join(".opencode", "agents", "gaze-reporter.md"),
-			result:   "gaze", label: "Gaze integration (Python)",
+			sentinel: filepath.Join(".opencode", "agents", "gazepy-reporter.md"),
+			result:   "gazepy", label: "Gaze integration (Python)",
 			forLang: "python"},
 	}
 
