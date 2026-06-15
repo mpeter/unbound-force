@@ -542,12 +542,12 @@ func installGazePy(opts *Options, env doctor.DetectedEnvironment) stepResult {
 		return stepResult{name: "GazePy", action: "installed", detail: "via Homebrew"}
 	case "uv":
 		if opts.DryRun {
-			return stepResult{name: "GazePy", action: "dry-run", detail: "Would install: uv tool install 'gaze-py>=0.2'"}
+			return stepResult{name: "GazePy", action: "dry-run", detail: "Would install: uv tool install 'gaze-py>=0.4'"}
 		}
 		if _, err := opts.LookPath("uv"); err != nil {
 			return stepResult{name: "GazePy", action: "failed", detail: "uv not found", err: err}
 		}
-		if _, err := opts.ExecCmd("uv", "tool", "install", "gaze-py>=0.2"); err != nil {
+		if _, err := opts.ExecCmd("uv", "tool", "install", "gaze-py>=0.4"); err != nil {
 			return stepResult{name: "GazePy", action: "failed", detail: "uv tool install failed", err: err}
 		}
 		return stepResult{name: "GazePy", action: "installed", detail: "via uv"}
@@ -561,7 +561,7 @@ func installGazePy(opts *Options, env doctor.DetectedEnvironment) stepResult {
 			return stepResult{name: "GazePy", action: "dry-run", detail: "Would install: brew install unbound-force/tap/gazepy (uv tool install gaze-py as fallback)"}
 		}
 		if _, err := opts.LookPath("uv"); err == nil {
-			return stepResult{name: "GazePy", action: "dry-run", detail: "Would install: uv tool install 'gaze-py>=0.2'"}
+			return stepResult{name: "GazePy", action: "dry-run", detail: "Would install: uv tool install 'gaze-py>=0.4'"}
 		}
 		return stepResult{name: "GazePy", action: "dry-run", detail: "Would skip: uv and Homebrew not available. Install uv: https://docs.astral.sh/uv/"}
 	}
@@ -576,14 +576,14 @@ func installGazePy(opts *Options, env doctor.DetectedEnvironment) stepResult {
 	}
 
 	if _, uvErr := opts.LookPath("uv"); uvErr == nil {
-		_, installErr := opts.ExecCmd("uv", "tool", "install", "gaze-py>=0.2")
+		_, installErr := opts.ExecCmd("uv", "tool", "install", "gaze-py>=0.4")
 		if installErr == nil {
 			return stepResult{name: "GazePy", action: "installed", detail: "via uv (run `uf setup` again after tap formula lands to switch to Homebrew)"}
 		}
 		return stepResult{
 			name:   "GazePy",
 			action: "failed",
-			detail: "uv tool install gaze-py>=0.2 failed",
+			detail: "uv tool install gaze-py>=0.4 failed",
 			err:    installErr,
 		}
 	}

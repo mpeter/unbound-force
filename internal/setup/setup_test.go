@@ -3638,7 +3638,7 @@ func TestInstallGazePy_DryRunNoHomebrewWithUV(t *testing.T) {
 		t.Errorf("action = %q, want %q", result.action, "dry-run")
 	}
 	if !strings.Contains(result.detail, "gaze-py>=") {
-		t.Errorf("detail = %q, want to contain 'gaze-py>=0.2'", result.detail)
+		t.Errorf("detail = %q, want to contain 'gaze-py>=0.4'", result.detail)
 	}
 }
 
@@ -3665,7 +3665,7 @@ func TestInstallGazePy_HomebrewFallback_DiagnosticWritten(t *testing.T) {
 			"brew install unbound-force/tap/gazepy": fmt.Errorf("tap formula not found"),
 		},
 		outputs: map[string]string{
-			"uv tool install gaze-py>=0.2": "",
+			"uv tool install gaze-py>=0.4": "",
 		},
 	}
 	var buf bytes.Buffer
@@ -3696,7 +3696,7 @@ func TestInstallGazePy_AutoPath_UVFails(t *testing.T) {
 	// err field MUST be set — regression for silent error drop bug.
 	rec := &cmdRecorder{
 		errors: map[string]error{
-			"uv tool install gaze-py>=0.2": fmt.Errorf("network error: pypi.org unreachable"),
+			"uv tool install gaze-py>=0.4": fmt.Errorf("network error: pypi.org unreachable"),
 		},
 	}
 	opts := &Options{
@@ -3731,7 +3731,7 @@ func TestInstallGazePy_ExplicitUVMethodDryRun(t *testing.T) {
 		t.Errorf("action = %q, want dry-run", result.action)
 	}
 	if !strings.Contains(result.detail, "gaze-py>=") {
-		t.Errorf("detail = %q, want 'uv tool install gaze-py>=0.2'", result.detail)
+		t.Errorf("detail = %q, want 'uv tool install gaze-py>=0.4'", result.detail)
 	}
 }
 
@@ -3739,7 +3739,7 @@ func TestInstallGazePy_ExplicitUV_UVPresent(t *testing.T) {
 	// FR-001 scenario 1: explicit method: uv, uv on PATH, install succeeds.
 	rec := &cmdRecorder{
 		outputs: map[string]string{
-			"uv tool install gaze-py>=0.2": "Installed gaze-py",
+			"uv tool install gaze-py>=0.4": "Installed gaze-py",
 		},
 	}
 	opts := &Options{
@@ -3785,7 +3785,7 @@ func TestInstallGazePy_ExplicitUV_InstallFails(t *testing.T) {
 	// Regression: explicit method: uv, uv on PATH, install fails → err non-nil.
 	rec := &cmdRecorder{
 		errors: map[string]error{
-			"uv tool install gaze-py>=0.2": fmt.Errorf("pypi timeout"),
+			"uv tool install gaze-py>=0.4": fmt.Errorf("pypi timeout"),
 		},
 	}
 	opts := &Options{
@@ -3808,7 +3808,7 @@ func TestInstallGazePy_AutoPath_NoHomebrewUVSucceeds(t *testing.T) {
 	// Auto mode: no Homebrew in env, uv on PATH, install succeeds.
 	rec := &cmdRecorder{
 		outputs: map[string]string{
-			"uv tool install gaze-py>=0.2": "",
+			"uv tool install gaze-py>=0.4": "",
 		},
 	}
 	opts := &Options{
@@ -3884,7 +3884,7 @@ func TestInstallGazePy_HomebrewInstallFailed_UVSucceeds(t *testing.T) {
 			"brew install unbound-force/tap/gazepy": fmt.Errorf("brew error"),
 		},
 		outputs: map[string]string{
-			"uv tool install gaze-py>=0.2": "",
+			"uv tool install gaze-py>=0.4": "",
 		},
 	}
 	opts := &Options{
