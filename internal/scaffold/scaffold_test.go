@@ -6280,6 +6280,46 @@ func TestForLangFilter_PythonToolRunsOnPythonProject(t *testing.T) {
 	}
 }
 
+// TestInitSubTools_GazepySkippedWhenSentinelPresent verifies that gazepy init
+// is NOT called when agents/gaze-reporter.md already exists. This is the shared
+// sentinel: gazepy init deploys gaze-reporter.md (not gazepy-reporter.md), so
+// presence of that file signals gazepy has already run.
+func TestInitSubTools_GazepySkippedWhenSentinelPresent(t *testing.T) {
+	dir := t.TempDir()
+
+	// Python project: pyproject.toml present.
+	if err := os.WriteFile(filepath.Join(dir, "pyproject.toml"), []byte("[project]\nname = \"test\"\n"), 0o644); err != nil {
+		t.Fatalf("write pyproject.toml: %v", err)
+	}
+
+	// Sentinel present: agents/gaze-reporter.md exists (gazepy already ran).
+	agentsDir := filepath.Join(dir, ".opencode", "agents")
+	if err := os.MkdirAll(agentsDir, 0o755); err != nil {
+		t.Fatalf("mkdir agents: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(agentsDir, "gaze-reporter.md"), []byte("existing"), 0o644); err != nil {
+		t.Fatalf("write sentinel: %v", err)
+	}
+
+	rec := &scaffoldCmdRecorder{errors: map[string]error{}}
+
+	opts := &Options{
+		TargetDir: dir,
+		LookPath: stubScaffoldLookPath(map[string]string{
+			"gazepy": "/usr/local/bin/gazepy",
+		}),
+		ExecCmd: rec.execCmd,
+	}
+
+	_ = initSubTools(opts)
+
+	for _, call := range rec.calls {
+		if strings.HasPrefix(call, "gazepy") {
+			t.Errorf("gazepy init should NOT be called when gaze-reporter.md sentinel exists, got call: %q", call)
+		}
+	}
+}
+
 // TestForLangFilter_LanguageAgnosticToolRunsForAnyLang verifies that
 // a simpleTool with empty forLang runs regardless of project language.
 func TestForLangFilter_LanguageAgnosticToolRunsForAnyLang(t *testing.T) {
