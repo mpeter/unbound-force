@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -173,6 +174,156 @@ func TestRun_WriteFailureLeavesOutputUnchanged(t *testing.T) {
 	}
 	if len(entries) != 2 {
 		t.Errorf("Cask directory entries = %d, want 2 without partial output", len(entries))
+	}
+}
+
+func TestRun_RequiredPaths(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		options Options
+		want    string
+	}{
+		{"input", Options{OutputPath: "output.rb"}, "transform Homebrew Cask hook: input path is required"},
+		{"output", Options{InputPath: "input.rb"}, "transform Homebrew Cask hook: output path is required"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.options.ReadFile = func(string) ([]byte, error) {
+				t.Fatal("invalid paths must be rejected before reading input")
+				return nil, nil
+			}
+			result, err := Run(tc.options)
+			if result != nil || err == nil || err.Error() != tc.want {
+				t.Fatalf("Run() = (%v, %v), want (nil, %q)", result, err, tc.want)
+			}
+		})
+	}
+}
+
+func TestRun_MissingInputLeavesOutputUnchanged(t *testing.T) {
+	directory := t.TempDir()
+	inputPath := filepath.Join(directory, "missing.rb")
+	outputPath := filepath.Join(directory, "output.rb")
+	const originalOutput = "existing transformed Cask\n"
+	if err := os.WriteFile(outputPath, []byte(originalOutput), 0o644); err != nil {
+		t.Fatalf("write existing output Cask: %v", err)
+	}
+
+	result, err := Run(Options{InputPath: inputPath, OutputPath: outputPath})
+	if result != nil {
+		t.Errorf("Run() result = %+v, want nil on read failure", result)
+	}
+	if !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("Run() error = %v, want wrapped missing input error", err)
+	}
+	var pathErr *os.PathError
+	if !errors.As(err, &pathErr) {
+		t.Fatalf("Run() error = %v, want wrapped *os.PathError", err)
+	}
+	if pathErr.Op != "open" || pathErr.Path != inputPath {
+		t.Errorf("read error = %+v, want open of %q", pathErr, inputPath)
+	}
+	if want := "read generated Homebrew Cask: " + pathErr.Error(); err.Error() != want {
+		t.Errorf("Run() error = %q, want %q", err, want)
+	}
+	assertCaskFileContent(t, outputPath, originalOutput)
+	assertCaskDirectoryEntries(t, directory, "output.rb")
+}
+
+func TestRun_MissingOutputParentRejectsTemporaryFileCreation(t *testing.T) {
+	directory := t.TempDir()
+	inputPath := filepath.Join(directory, "input.rb")
+	outputParent := filepath.Join(directory, "missing")
+	outputPath := filepath.Join(outputParent, "output.rb")
+	if err := os.WriteFile(inputPath, []byte(generatedCaskFixture), 0o644); err != nil {
+		t.Fatalf("write input Cask: %v", err)
+	}
+
+	result, err := Run(Options{InputPath: inputPath, OutputPath: outputPath})
+	if result != nil {
+		t.Errorf("Run() result = %+v, want nil on temporary-file creation failure", result)
+	}
+	if !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("Run() error = %v, want wrapped missing parent error", err)
+	}
+	var pathErr *os.PathError
+	if !errors.As(err, &pathErr) {
+		t.Fatalf("Run() error = %v, want wrapped *os.PathError", err)
+	}
+	if pathErr.Op != "open" || filepath.Dir(pathErr.Path) != outputParent || !strings.HasPrefix(filepath.Base(pathErr.Path), ".output.rb-") {
+		t.Errorf("creation error = %+v, want open of temporary output in %q", pathErr, outputParent)
+	}
+	if want := "create temporary transformed Homebrew Cask: " + pathErr.Error(); err.Error() != want {
+		t.Errorf("Run() error = %q, want %q", err, want)
+	}
+	if _, statErr := os.Stat(outputPath); !errors.Is(statErr, os.ErrNotExist) {
+		t.Errorf("output state = %v, want absent output", statErr)
+	}
+	assertCaskFileContent(t, inputPath, generatedCaskFixture)
+	assertCaskDirectoryEntries(t, directory, "input.rb")
+}
+
+func TestRun_DirectoryDestinationRejectsReplacementAndRemovesTemporaryFile(t *testing.T) {
+	directory := t.TempDir()
+	inputPath := filepath.Join(directory, "input.rb")
+	outputPath := filepath.Join(directory, "output.rb")
+	if err := os.WriteFile(inputPath, []byte(generatedCaskFixture), 0o644); err != nil {
+		t.Fatalf("write input Cask: %v", err)
+	}
+	if err := os.Mkdir(outputPath, 0o755); err != nil {
+		t.Fatalf("create destination directory: %v", err)
+	}
+	existingPath := filepath.Join(outputPath, "existing.rb")
+	const originalOutput = "existing transformed Cask\n"
+	if err := os.WriteFile(existingPath, []byte(originalOutput), 0o644); err != nil {
+		t.Fatalf("write existing destination content: %v", err)
+	}
+
+	result, err := Run(Options{InputPath: inputPath, OutputPath: outputPath})
+	if result != nil {
+		t.Errorf("Run() result = %+v, want nil on replacement failure", result)
+	}
+	var linkErr *os.LinkError
+	if !errors.As(err, &linkErr) {
+		t.Fatalf("Run() error = %v, want wrapped *os.LinkError", err)
+	}
+	if linkErr.Op != "rename" || linkErr.New != outputPath || filepath.Dir(linkErr.Old) != directory || !strings.HasPrefix(filepath.Base(linkErr.Old), ".output.rb-") {
+		t.Errorf("replacement error = %+v, want rename of temporary output to %q", linkErr, outputPath)
+	}
+	if want := "replace transformed Homebrew Cask: " + linkErr.Error(); err.Error() != want {
+		t.Errorf("Run() error = %q, want %q", err, want)
+	}
+	if _, statErr := os.Stat(linkErr.Old); !errors.Is(statErr, os.ErrNotExist) {
+		t.Errorf("temporary output state = %v, want removed temporary file", statErr)
+	}
+	assertCaskFileContent(t, inputPath, generatedCaskFixture)
+	assertCaskFileContent(t, existingPath, originalOutput)
+	assertCaskDirectoryEntries(t, outputPath, "existing.rb")
+	assertCaskDirectoryEntries(t, directory, "input.rb", "output.rb")
+}
+
+func assertCaskFileContent(t *testing.T, path, want string) {
+	t.Helper()
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read Cask %q: %v", path, err)
+	}
+	if string(got) != want {
+		t.Errorf("Cask %q = %q, want unchanged %q", path, got, want)
+	}
+}
+
+func assertCaskDirectoryEntries(t *testing.T, directory string, want ...string) {
+	t.Helper()
+	entries, err := os.ReadDir(directory)
+	if err != nil {
+		t.Fatalf("read Cask directory %q: %v", directory, err)
+	}
+	got := make([]string, len(entries))
+	for i, entry := range entries {
+		got[i] = entry.Name()
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("Cask directory %q entries = %q, want %q without partial output", directory, got, want)
 	}
 }
 

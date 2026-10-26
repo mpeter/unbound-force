@@ -589,6 +589,9 @@ Each entry follows the format: `- <change-name>: <summary>`.
   openspec/changes/command-prose-pilot/)
 
 ### Fixed
+- h07-runtime-compatibility: Added regression coverage for Homebrew
+  Cask validation and filesystem failures, including preservation of
+  existing destinations and cleanup of temporary output.
 - fix-init-speckit-sentinel: `uf init` no longer silently skips
   the Speckit delegation on a fresh run. Since the
   starter-constitution asset landed (an embedded
