@@ -1,16 +1,16 @@
 ## 1. Establish contracts
 
-- [ ] 1.1 Validate and publish planning artifacts before source edits.
+- [x] 1.1 Validate and publish planning artifacts before source edits.
 - [ ] 1.2 Confirm installed runtime inspection and isolation semantics.
-- [ ] 1.3 Reproduce the reviewer failure on the unchanged test.
+- [x] 1.3 Reproduce the reviewer failure on the unchanged test.
 
 ## 2. Implement bounded repairs
 
 - [ ] 2.1 [P] Adapt reviewer inspection and add regression assertions
   retaining provider isolation, error propagation and bounded execution.
-- [ ] 2.2 [P] Add Homebrew missing-input, temporary-file creation and
+- [x] 2.2 [P] Add Homebrew missing-input, temporary-file creation and
   destination-replacement failure tests with state assertions.
-- [ ] 2.3 Diagnose scaffold teardown with concrete lifecycle evidence;
+- [x] 2.3 Diagnose scaffold teardown with concrete lifecycle evidence;
   repair only if established, otherwise retain the unresolved limit.
 
 ## 3. Verify and deliver
